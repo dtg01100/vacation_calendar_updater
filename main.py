@@ -6,6 +6,9 @@ import tkinter.ttk
 import tkinter.messagebox
 import tkinter.scrolledtext
 import threading
+
+import googleapiclient
+
 import rclick_menu
 from email.mime.text import MIMEText
 
@@ -135,15 +138,22 @@ loading_label = tkinter.Label(root_window, text="Loading, Please Wait")
 loading_label.pack()
 root_window.update()
 
-credentials = get_credentials()
-http = credentials.authorize(httplib2.Http())
-try:
-    calendar_service = discovery.build('calendar', 'v3', http=http)
-    email_service = discovery.build('gmail', 'v1', http=http)
-except httplib2.ServerNotFoundError as connection_issue:
-    root_window.withdraw()
-    tkinter.messagebox.showerror("Unable to connect to server", connection_issue)
-    raise SystemExit
+
+def start_connection():
+    global calendar_service
+    global email_service
+    credentials = get_credentials()
+    http = credentials.authorize(httplib2.Http())
+    try:
+        calendar_service = discovery.build('calendar', 'v3', http=http)
+        email_service = discovery.build('gmail', 'v1', http=http)
+    except httplib2.ServerNotFoundError as connection_issue:
+        root_window.withdraw()
+        tkinter.messagebox.showerror("Unable to connect to server", connection_issue)
+        raise SystemExit
+
+
+start_connection()
 
 event_input_var = tkinter.StringVar()
 start_date_selector_var = tkinter.StringVar()
@@ -183,6 +193,7 @@ def insert_event_into_cal(start_date, end_date):
 def process_dates():
     global calendar_events_keep_alive
     global event_id_list
+    start_connection()
     start_date_list = list(rrule(DAILY, byweekday=tuple(check_button_list),
                                  dtstart=parse(start_date_selector.get() + " " + start_time_input.get()),
                                  until=parse(end_date_selector.get() + " " + start_time_input.get())))
@@ -201,13 +212,19 @@ def process_dates():
 
     event_id_list = []
 
-    for start, stop in date_list:
-        if not calendar_events_keep_alive:
-            break
-        else:
-            event_id_list.append(insert_event_into_cal(rfc3339.rfc3339(start), rfc3339.rfc3339(stop)))
-            days += 1
-            hours += float(end_time_entry.get())
+    try:
+        for start, stop in date_list:
+            if not calendar_events_keep_alive:
+                break
+            else:
+                event_id_list.append(insert_event_into_cal(rfc3339.rfc3339(start), rfc3339.rfc3339(stop)))
+                days += 1
+                hours += float(end_time_entry.get())
+    except googleapiclient.errors.HttpError:
+        root_window.withdraw()
+        tkinter.messagebox.showerror("Error Adding Event",
+                                     "Error when attempting to create events,\n does the calendar still exist?")
+        raise SystemExit
     message_text = "Calendar event(s) created for \"{0}\" event," \
                    " for {1} hours, over the course of {2} days." \
                    " The event days are between {3} and {4}".\
@@ -228,18 +245,25 @@ def cancel_adding_events():
 
 def undo_events_added():
     global event_id_list
+    start_connection()
     event_counter = 0
-    for event_id, calendar_id in event_id_list:
-        event_counter += 1
-        print("Deleting event with id: " + event_id)
-        calendar_service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
-        print("Success")
-    message_text = "\"{0}\" Calendar event(s) deleted".format(str(event_counter))
-    notify_message = create_message('me',
-                                    notification_input.get(),
-                                    'Previous Calendar Event Deleted',
-                                    message_text)
-    send_message(email_service, 'me', notify_message)
+    try:
+        for event_id, calendar_id in event_id_list:
+            event_counter += 1
+            print("Deleting event with id: " + event_id)
+            calendar_service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
+            print("Success")
+        message_text = "\"{0}\" Calendar event(s) deleted".format(str(event_counter))
+        notify_message = create_message('me',
+                                        notification_input.get(),
+                                        'Previous Calendar Event Deleted',
+                                        message_text)
+        send_message(email_service, 'me', notify_message)
+    except googleapiclient.errors.HttpError:
+        root_window.withdraw()
+        tkinter.messagebox.showerror("Error Removing Event",
+                                     "Error when attempting to remove events,\n does the calendar still exist?")
+        raise SystemExit
     print(message_text)
 
 
@@ -449,6 +473,8 @@ try:
 except KeyError:
     config_issues = True
 except configparser.NoOptionError:
+    config_issues = True
+except configparser.NoSectionError:
     config_issues = True
 if config_issues:
     config = configparser.RawConfigParser()
