@@ -38,7 +38,8 @@ try:
 except ImportError:
     flags = None
 
-settings_file_path = os.path.join(os.path.expanduser('~'), '.vacation_calendar_updater.cfg')
+settings_file_path = os.path.join(
+    os.path.expanduser('~'), '.vacation_calendar_updater.cfg')
 config = configparser.RawConfigParser()
 
 # If modifying these scopes, delete your previously saved credentials
@@ -149,7 +150,8 @@ def start_connection():
         email_service = discovery.build('gmail', 'v1', http=http)
     except httplib2.ServerNotFoundError as connection_issue:
         root_window.withdraw()
-        tkinter.messagebox.showerror("Unable to connect to server", connection_issue)
+        tkinter.messagebox.showerror(
+            "Unable to connect to server", connection_issue)
         raise SystemExit
 
 
@@ -195,15 +197,16 @@ def process_dates():
     global event_id_list
     start_connection()
     start_date_list = list(rrule(DAILY, byweekday=tuple(check_button_list),
-                                 dtstart=parse(start_date_selector.get() + " " + start_time_input.get()),
+                                 dtstart=parse(start_date_selector.get(
+                                 ) + " " + start_time_input.get()),
                                  until=parse(end_date_selector.get() + " " + start_time_input.get())))
 
     stop_date_list = list(rrule(DAILY, byweekday=tuple(check_button_list), dtstart=parse(
         start_date_selector.get() + " " + start_time_input.get()) + datetime.timedelta(
         hours=float(end_time_entry.get())),
-                                until=parse(
-                                    end_date_selector.get() + " " + start_time_input.get()) + datetime.timedelta(
-                                    hours=float(end_time_entry.get()))))
+        until=parse(
+        end_date_selector.get() + " " + start_time_input.get()) + datetime.timedelta(
+        hours=float(end_time_entry.get()))))
 
     date_list = zip(start_date_list, stop_date_list)
 
@@ -217,7 +220,8 @@ def process_dates():
             if not calendar_events_keep_alive:
                 break
             else:
-                event_id_list.append(insert_event_into_cal(rfc3339.rfc3339(start), rfc3339.rfc3339(stop)))
+                event_id_list.append(insert_event_into_cal(
+                    rfc3339.rfc3339(start), rfc3339.rfc3339(stop)))
                 days += 1
                 hours += float(end_time_entry.get())
     except googleapiclient.errors.HttpError:
@@ -232,7 +236,8 @@ def process_dates():
                           str(start_date_selector.get()), str(end_date_selector.get()))
     notify_message = create_message('me',
                                     notification_input.get(),
-                                    '{} Calendar Event Created'.format(event_input.get()),
+                                    '{} Calendar Event Created'.format(
+                                        event_input.get()),
                                     message_text)
     send_message(email_service, 'me', notify_message)
     print(message_text)
@@ -253,7 +258,8 @@ def undo_events_added():
             print("Deleting event with id: " + event_id)
             calendar_service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
             print("Success")
-        message_text = "\"{0}\" Calendar event(s) deleted".format(str(event_counter))
+        message_text = "\"{0}\" Calendar event(s) deleted".format(
+            str(event_counter))
         notify_message = create_message('me',
                                         notification_input.get(),
                                         'Previous Calendar Event Deleted',
@@ -299,7 +305,8 @@ def process_dates_thread_wrapper():
     event_input.configure(state=tkinter.DISABLED)
     start_date_selector.configure(state=tkinter.DISABLED)
     end_date_selector.configure(state=tkinter.DISABLED)
-    process_events_button.configure(text="Stop Processing", command=cancel_adding_events)
+    process_events_button.configure(
+        text="Stop Processing", command=cancel_adding_events)
     select_calendar_menu.configure(state=tkinter.DISABLED)
     undo_process_button.configure(state=tkinter.DISABLED)
     calendar_update_thread_object = threading.Thread(target=process_dates)
@@ -311,7 +318,8 @@ def process_dates_thread_wrapper():
     event_input.configure(state=tkinter.NORMAL)
     start_date_selector.configure(state=tkinter.NORMAL)
     end_date_selector.configure(state=tkinter.NORMAL)
-    process_events_button.configure(text="Insert Into Calendar", command=process_dates_thread_wrapper)
+    process_events_button.configure(
+        text="Insert Into Calendar", command=process_dates_thread_wrapper)
     select_calendar_menu.configure(state=tkinter.NORMAL)
     if len(event_id_list) > 0:
         undo_process_button.configure(state=tkinter.NORMAL)
@@ -332,7 +340,8 @@ class StdoutRedirector(object):
 
 
 def get_calendar_id():
-    match_list = next((l for l in calendar_list if l['summary'] == select_calendar_menu_var.get())), None
+    match_list = next(
+        (l for l in calendar_list if l['summary'] == select_calendar_menu_var.get())), None
     for key, value in match_list[0].items():
         if key == 'id':
             return value
@@ -340,7 +349,8 @@ def get_calendar_id():
 
 def get_number_days():
     start_date_list = list(rrule(DAILY, byweekday=tuple(check_button_list),
-                                 dtstart=parse(start_date_selector.get() + " " + start_time_input.get()),
+                                 dtstart=parse(start_date_selector.get(
+                                 ) + " " + start_time_input.get()),
                                  until=parse(end_date_selector.get() + " " + start_time_input.get())))
     return len(start_date_list)
 
@@ -402,7 +412,8 @@ def get_calendar_list():
     page_token = None
     calendar_summary_list = []
     while True:
-        calendar_list_from_net = calendar_service.calendarList().list(pageToken=page_token).execute()
+        calendar_list_from_net = calendar_service.calendarList().list(
+            pageToken=page_token).execute()
         for calendar_list_entry in calendar_list_from_net['items']:
             if not calendar_list_entry['accessRole'] == 'reader':
                 calendar_summary_list.append(calendar_list_entry['summary'])
@@ -495,11 +506,13 @@ if not validate_email.validate_email(user_email) or default_calendar not in cale
 
 loading_label.destroy()
 
-process_events_button = tkinter.Button(root_window, text="Insert Into Calendar", command=process_dates_thread_wrapper)
+process_events_button = tkinter.Button(
+    root_window, text="Insert Into Calendar", command=process_dates_thread_wrapper)
 
 process_events_button.grid(row=4, column=0, columnspan=2, sticky=tkinter.N)
 
-undo_process_button = tkinter.Button(root_window, text="Undo", command=undo_process_dates)
+undo_process_button = tkinter.Button(
+    root_window, text="Undo", command=undo_process_dates)
 
 undo_process_button.grid(row=4, column=1, columnspan=2, sticky=tkinter.N)
 
@@ -510,31 +523,40 @@ start_time_input_var.trace('w', callback=process_events_button_toggle)
 end_time_input_var.trace('w', callback=process_events_button_toggle)
 notification_input_var.trace('w', callback=process_events_button_toggle)
 
-notification_email_label = tkinter.Label(root_window, text="Notification Email").grid(row=0, column=2)
-notification_input = tkinter.Entry(root_window, textvariable=notification_input_var)
+notification_email_label = tkinter.Label(
+    root_window, text="Notification Email").grid(row=0, column=2)
+notification_input = tkinter.Entry(
+    root_window, textvariable=notification_input_var)
 notification_input.grid(row=0, column=3, sticky=tkinter.E + tkinter.W)
 notification_input_rclick_menu = rclick_menu.RightClickMenu(notification_input)
 notification_input.bind("<3>", notification_input_rclick_menu)
 
-event_input_label = tkinter.Label(root_window, text="Event Name").grid(row=0, column=0)
+event_input_label = tkinter.Label(
+    root_window, text="Event Name").grid(row=0, column=0)
 event_input = tkinter.Entry(root_window, textvariable=event_input_var)
 event_input.grid(row=0, column=1, sticky=tkinter.E + tkinter.W)
 event_input_rclick_menu = rclick_menu.RightClickMenu(event_input)
 event_input.bind("<3>", event_input_rclick_menu)
 
-start_date_selector_label = tkinter.Label(root_window, text="Start Date").grid(row=1, column=0)
-start_date_selector = datepicker.Datepicker(root_window, datevar=start_date_selector_var)
+start_date_selector_label = tkinter.Label(
+    root_window, text="Start Date").grid(row=1, column=0)
+start_date_selector = datepicker.Datepicker(
+    root_window, datevar=start_date_selector_var)
 start_date_selector.grid(row=1, column=1, sticky=tkinter.E + tkinter.W)
-start_date_selector_rclick_menu = rclick_menu.RightClickMenu(start_date_selector)
+start_date_selector_rclick_menu = rclick_menu.RightClickMenu(
+    start_date_selector)
 start_date_selector.bind("<3>", start_date_selector_rclick_menu)
 
-start_time_input = tkinter.Entry(root_window, textvariable=start_time_input_var)
+start_time_input = tkinter.Entry(
+    root_window, textvariable=start_time_input_var)
 start_time_input.grid(row=1, column=3, sticky=tkinter.E + tkinter.W)
 start_time_label = tkinter.Label(root_window, text="Start Time")
 start_time_label.grid(row=1, column=2)
 
-end_date_selector_label = tkinter.Label(root_window, text="End Date").grid(row=2, column=0)
-end_date_selector = datepicker.Datepicker(root_window, datevar=end_date_selector_var)
+end_date_selector_label = tkinter.Label(
+    root_window, text="End Date").grid(row=2, column=0)
+end_date_selector = datepicker.Datepicker(
+    root_window, datevar=end_date_selector_var)
 end_date_selector.grid(row=2, column=1, sticky=tkinter.E + tkinter.W)
 end_date_selector_rclick_menu = rclick_menu.RightClickMenu(end_date_selector)
 end_date_selector.bind("<3>", end_date_selector_rclick_menu)
@@ -625,14 +647,17 @@ select_calendar_menu = tkinter.ttk.OptionMenu(root_window, select_calendar_menu_
                                               *calendar_menu_options)
 
 select_calendar_menu.grid(row=4, column=2, columnspan=2, sticky=tkinter.N)
-log_text_box = tkinter.scrolledtext.ScrolledText(master=root_window, wrap='word', height=10, width=50)
-log_text_box.grid(row=5, column=0, columnspan=4, padx=5, pady=5, sticky=tkinter.N + tkinter.S + tkinter.E + tkinter.W)
+log_text_box = tkinter.scrolledtext.ScrolledText(
+    master=root_window, wrap='word', height=10, width=50)
+log_text_box.grid(row=5, column=0, columnspan=4, padx=5, pady=5,
+                  sticky=tkinter.N + tkinter.S + tkinter.E + tkinter.W)
 log_text_box.rowconfigure(5, weight=1)
 root_window.rowconfigure(4, weight=1)
 root_window.columnconfigure(1, weight=1)
 root_window.columnconfigure(3, weight=1)
 root_window.update()
-root_window.minsize(width=root_window.winfo_width(), height=root_window.winfo_height())
+root_window.minsize(width=root_window.winfo_width(),
+                    height=root_window.winfo_height())
 root_window.resizable(height=False, width=False)
 sys.stdout = StdoutRedirector(log_text_box)
 log_text_box.bind("<Key>", lambda e: "break")
