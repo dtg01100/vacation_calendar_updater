@@ -139,6 +139,8 @@ loading_label = tkinter.Label(root_window, text="Loading, Please Wait")
 loading_label.pack()
 root_window.update()
 
+calendar_service = None
+email_service = None
 
 def start_connection():
     global calendar_service
