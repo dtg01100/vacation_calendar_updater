@@ -52,8 +52,6 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
-print(resource_path('client_secret.json'))
-
 # If modifying these scopes, delete your previously saved credentials
 # at ~/.credentials/vacation_calendar_tool.json
 SCOPES = 'https://www.googleapis.com/auth/calendar' \
