@@ -42,12 +42,24 @@ settings_file_path = os.path.join(
     os.path.expanduser('~'), '.vacation_calendar_updater.cfg')
 config = configparser.RawConfigParser()
 
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
+print(resource_path('client_secret.json'))
+
 # If modifying these scopes, delete your previously saved credentials
 # at ~/.credentials/vacation_calendar_tool.json
 SCOPES = 'https://www.googleapis.com/auth/calendar' \
          ' https://www.googleapis.com/auth/gmail.send' \
          ' https://www.googleapis.com/auth/gmail.readonly'
-CLIENT_SECRET_FILE = 'client_secret.json'
+CLIENT_SECRET_FILE = resource_path('client_secret.json')
 APPLICATION_NAME = 'Vacation Calendar Tool'
 
 
@@ -414,8 +426,17 @@ def get_calendar_list():
     page_token = None
     calendar_summary_list = []
     while True:
-        calendar_list_from_net = calendar_service.calendarList().list(
-            pageToken=page_token).execute()
+        success = False
+        attempt_count = 0
+        while attempt_count < 10 and not success:
+            attempt_count += 1
+            try:
+                calendar_list_from_net = calendar_service.calendarList().list(
+                    pageToken=page_token).execute()
+                success = True
+            except googleapiclient.errors.HttpError:
+                print(f"http error, backing off (sleepting {str(attempt_count * attempt_count)} seconds), attempt {str(attempt_count)}")
+                time.sleep(attempt_count * attempt_count)
         for calendar_list_entry in calendar_list_from_net['items']:
             if not calendar_list_entry['accessRole'] == 'reader':
                 calendar_summary_list.append(calendar_list_entry['summary'])
