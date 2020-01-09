@@ -397,6 +397,11 @@ def field_sanity_check():
 
 def process_events_button_toggle(name=None, index=None, mode=None):
     _ = name, index, mode
+    try:
+        if parse(start_date_selector_var.get()) > parse(end_date_selector_var.get()):
+            end_date_selector_var.set(start_date_selector_var.get())
+    except ValueError:
+        pass
     if field_sanity_check():
         process_events_button.configure(state=tkinter.DISABLED)
         try:
