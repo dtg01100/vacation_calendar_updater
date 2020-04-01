@@ -170,8 +170,8 @@ def start_connection():
 start_connection()
 
 event_input_var = tkinter.StringVar()
-start_date_selector_var = tkinter.StringVar()
-end_date_selector_var = tkinter.StringVar()
+start_date_selector_var = tkinter.StringVar(name="startdate")
+end_date_selector_var = tkinter.StringVar(name="enddate")
 start_time_input_var = tkinter.StringVar()
 end_time_input_var = tkinter.StringVar()
 notification_input_var = tkinter.StringVar()
@@ -399,7 +399,10 @@ def process_events_button_toggle(name=None, index=None, mode=None):
     _ = name, index, mode
     try:
         if parse(start_date_selector_var.get()) > parse(end_date_selector_var.get()):
-            end_date_selector_var.set(start_date_selector_var.get())
+            if name == "startdate":
+                end_date_selector_var.set(start_date_selector_var.get())
+            if name == "enddate":
+                start_date_selector_var.set(end_date_selector_var.get())
     except ValueError:
         pass
     if field_sanity_check():
