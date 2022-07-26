@@ -405,6 +405,20 @@ def process_events_button_toggle(name=None, index=None, mode=None):
                 start_date_selector_var.set(end_date_selector_var.get())
     except ValueError:
         pass
+    if (start_date_selector_var.get().strip() == "" or end_date_selector_var.get().strip() == ""):
+        if name == "startdate":
+            try:
+                _ = parse(start_date_selector_var.get())
+                end_date_selector_var.set(start_date_selector_var.get())
+            except ValueError:
+                pass
+        if name == "enddate":
+            try:
+                _ = parse(end_date_selector_var.get())
+                start_date_selector_var.set(end_date_selector_var.get())
+            except ValueError:
+                pass
+
     if field_sanity_check():
         process_events_button.configure(state=tkinter.DISABLED)
         try:
