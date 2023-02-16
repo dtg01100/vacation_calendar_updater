@@ -248,8 +248,8 @@ def process_dates():
                           str(start_date_selector.get()), str(end_date_selector.get()))
     notify_message = create_message('me',
                                     notification_input.get(),
-                                    '{} Calendar Event Created'.format(
-                                        event_input.get()),
+                                    '{0} Calendar Event Created ({1}_{2})'.format(
+                                        event_input.get(), str(start_date_selector.get()), str(end_date_selector.get())),
                                     message_text)
     send_message(email_service, 'me', notify_message)
     print(message_text)
