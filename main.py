@@ -158,8 +158,8 @@ def start_connection():
     credentials = get_credentials()
     http = credentials.authorize(httplib2.Http())
     try:
-        calendar_service = discovery.build('calendar', 'v3', http=http)
-        email_service = discovery.build('gmail', 'v1', http=http)
+        calendar_service = discovery.build('calendar', 'v3', http=http, static_discovery=False)
+        email_service = discovery.build('gmail', 'v1', http=http, static_discovery=False)
     except httplib2.ServerNotFoundError as connection_issue:
         root_window.withdraw()
         tkinter.messagebox.showerror(
