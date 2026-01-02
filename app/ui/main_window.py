@@ -37,6 +37,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.creation_worker: Optional[EventCreationWorker] = None
         self.undo_worker: Optional[UndoWorker] = None
 
+        # Load undo history from previous session
+        self.undo_manager.load_history(str(self.config_manager.path.parent))
+
         # Connect undo manager signals
         self.undo_manager.history_changed.connect(self._update_undo_ui)
 
@@ -674,6 +677,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:  # type: ignore[override]
         """Gracefully stop worker threads before the window closes."""
+
+        # Save undo history before stopping threads
+        self.undo_manager.save_history(str(self.config_manager.path.parent))
 
         self._stop_thread(self.creation_thread, self.creation_worker)
         self._stop_thread(self.undo_thread, self.undo_worker)
