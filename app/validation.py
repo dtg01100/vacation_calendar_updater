@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import datetime as dt
+import re
 from dataclasses import dataclass
 from typing import Mapping, TYPE_CHECKING
 
 from dateutil.parser import parse
 from dateutil.rrule import DAILY, FR, MO, SA, SU, TH, TU, WE, rrule
-import validate_email
 
 if TYPE_CHECKING:
     from app.services import EnhancedCreatedEvent
@@ -15,6 +15,15 @@ try:  # Optional: allow validation to run without Qt, but normalize Qt types whe
     from PySide6 import QtCore
 except Exception:  # pragma: no cover - fallback when PySide6 not present
     QtCore = None
+
+# Simple email validation regex (RFC 5322 simplified)
+_EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+
+
+def validate_email(email: str) -> bool:
+    """Validate email format using regex."""
+    return bool(_EMAIL_REGEX.match(email))
+
 
 WEEKDAY_ORDER = (
     "monday",
@@ -190,7 +199,7 @@ def validate_request(req: ScheduleRequest) -> list[str]:
     errors: list[str] = []
     if not req.event_name.strip():
         errors.append("Event name is required")
-    if not validate_email.validate_email(req.notification_email):
+    if not validate_email(req.notification_email):
         errors.append("Notification email is invalid")
     weekday_list = weekday_constants(req.weekdays)
     if not weekday_list:
