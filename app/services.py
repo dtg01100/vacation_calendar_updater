@@ -60,7 +60,11 @@ class GoogleApi:
         client_secret: str | None = None,
         credential_name: str = DEFAULT_CREDENTIAL_NAME,
     ) -> None:
-        self.client_secret = client_secret or resource_path("client_secret.json")
+        self.client_secret = (
+            client_secret
+            or os.environ.get("CLIENT_SECRET_PATH")
+            or resource_path("client_secret.json")
+        )
         self.credential_name = credential_name
         self._calendar_service = None
         self._gmail_service = None
@@ -74,9 +78,7 @@ class GoogleApi:
         self._calendar_service = discovery.build(
             "calendar", "v3", http=http, static_discovery=False
         )
-        self._gmail_service = discovery.build(
-            "gmail", "v1", http=http, static_discovery=False
-        )
+        self._gmail_service = discovery.build("gmail", "v1", http=http, static_discovery=False)
 
     def calendar_service(self):
         self.ensure_connected()
@@ -98,9 +100,7 @@ class GoogleApi:
         calendars: list[dict] = []
         while True:
             calendar_list_from_net = (
-                self._calendar_service.calendarList()
-                .list(pageToken=page_token)
-                .execute()
+                self._calendar_service.calendarList().list(pageToken=page_token).execute()
             )
             calendars.extend(calendar_list_from_net.get("items", []))
             for entry in calendar_list_from_net.get("items", []):
@@ -120,11 +120,7 @@ class GoogleApi:
             "end": {"dateTime": rfc3339.rfc3339(end)},
             "reminders": {"useDefault": False},
         }
-        event = (
-            self._calendar_service.events()
-            .insert(calendarId=calendar_id, body=body)
-            .execute()
-        )
+        event = self._calendar_service.events().insert(calendarId=calendar_id, body=body).execute()
         return CreatedEvent(event_id=event.get("id"), calendar_id=calendar_id)
 
     def delete_event(self, created_event: CreatedEvent) -> None:
@@ -133,9 +129,7 @@ class GoogleApi:
             calendarId=created_event.calendar_id, eventId=created_event.event_id
         ).execute()
 
-    def send_email(
-        self, recipient: str, subject: str, body: str, *, enabled: bool
-    ) -> None:
+    def send_email(self, recipient: str, subject: str, body: str, *, enabled: bool) -> None:
         if not enabled:
             return
         self.ensure_connected()
@@ -149,13 +143,21 @@ class GoogleApi:
     def _get_credentials(self):
         if self._credentials:
             return self._credentials
-        home_dir = Path.home()
-        credential_dir = home_dir / ".credentials"
+
+        # Use Qt's standard paths for cross-platform config directory
+        from PySide6 import QtCore
+
+        config_dir = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.ConfigLocation)
+        credential_dir = Path(config_dir) / "credentials"
         credential_dir.mkdir(parents=True, exist_ok=True)
         credential_path = credential_dir / self.credential_name
 
+        # Create store at credential path
         store = Storage(credential_path)
-        credentials = store.get()
+        credentials = None
+        if credential_path.exists():
+            credentials = store.get()
+
         if not credentials or credentials.invalid:
             flow = client.flow_from_clientsecrets(self.client_secret, SCOPES)
             flow.user_agent = APPLICATION_NAME
