@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -37,8 +38,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.creation_worker: Optional[EventCreationWorker] = None
         self.undo_worker: Optional[UndoWorker] = None
 
-        # Load undo history from previous session
-        self.undo_manager.load_history(str(self.config_manager.path.parent))
+        # Use Qt standard paths for platform-appropriate app data directory
+        self._app_data_dir = (
+            Path(
+                QtCore.QStandardPaths.writableLocation(
+                    QtCore.QStandardPaths.StandardLocation.AppDataLocation
+                )
+            )
+            / "VacationCalendarUpdater"
+        )
+        self._app_data_dir.mkdir(parents=True, exist_ok=True)
+        self.undo_manager.load_history(str(self._app_data_dir))
 
         # Connect undo manager signals
         self.undo_manager.history_changed.connect(self._update_undo_ui)
@@ -679,7 +689,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """Gracefully stop worker threads before the window closes."""
 
         # Save undo history before stopping threads
-        self.undo_manager.save_history(str(self.config_manager.path.parent))
+        self.undo_manager.save_history(str(self._app_data_dir))
 
         self._stop_thread(self.creation_thread, self.creation_worker)
         self._stop_thread(self.undo_thread, self.undo_worker)
