@@ -125,7 +125,7 @@ class MainWindow(QtWidgets.QMainWindow):
         QtWidgets.QMessageBox.critical(self, "Unable to connect", error_message)
         # Use defaults - app can still function with manual calendar entry
         if not self.calendar_names:
-            self.calendar.addItem("Primary")
+            self.calendar_combo.addItem("Primary")
             self.calendar_names = ["Primary"]
 
     def _build_ui(self) -> None:
