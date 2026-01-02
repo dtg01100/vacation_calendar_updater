@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vacation-calendar-updater"
+version = "0.1.0"
+description = "A tool for managing vacation calendar events in Google Calendar"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Vacation Calendar Updater Contributors"}
+]
+dependencies = [
+    "PyQt6>=6.6.0",
+    "google-api-python-client>=2.100.0",
+    "oauth2client>=4.1.3",
+    "python-dateutil>=2.8.2",
+    "validate-email>=1.3",
+    "PyQt6-Qt6>=6.6.0",
+    "PyQt6-sip>=13.6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-qt>=4.2.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+vacation-calendar = "app.main:main"
+
+[project.gui-scripts]
+vacation-calendar-gui = "app.ui.main_window:launch"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

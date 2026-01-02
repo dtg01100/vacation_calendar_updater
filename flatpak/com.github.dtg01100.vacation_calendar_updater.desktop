@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Vacation Calendar Updater
+Comment=Create and remove recurring vacation calendar events
+Exec=vacation-calendar-updater
+Icon=com.github.dtg01100.vacation_calendar_updater
+Terminal=false
+Type=Application
+Categories=Office;Utility;

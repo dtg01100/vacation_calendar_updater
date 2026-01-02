@@ -1,0 +1,121 @@
+{
+  "app-id": "com.github.dtg01100.vacation_calendar_updater",
+  "runtime": "org.kde.Platform",
+  "runtime-version": "6.9",
+  "sdk": "org.kde.Sdk",
+  "base": "io.qt.PySide.BaseApp",
+  "base-version": "6.9",
+  "command": "vacation-calendar-updater",
+  "finish-args": [
+    "--share=network",
+    "--share=ipc",
+    "--socket=x11",
+    "--socket=wayland",
+    "--filesystem=home",
+    "--env=PYTHONPATH=/app"
+  ],
+  "modules": [
+    {
+      "name": "vacation-calendar-updater",
+      "buildsystem": "simple",
+      "builddir": true,
+      "sources": [{ "type": "dir", "path": "/tmp/vacation-flatpak-build" }],
+      "build-commands": [
+        "mkdir -p /app/bin /app/share/applications",
+        "cp -r app /app/",
+        "install -D -m 755 main.py /app/bin/vacation-calendar-updater",
+        "install -D -m 644 com.github.dtg01100.vacation_calendar_updater.desktop /app/share/applications/com.github.dtg01100.vacation_calendar_updater.desktop"
+      ]
+    },
+    {
+      "name": "python3-httplib2",
+      "buildsystem": "simple",
+      "build-commands": ["pip3 install --no-deps --ignore-installed --prefix /app httplib2-0.20.4-py3-none-any.whl"],
+      "sources": [{ "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/httplib2-0.20.4-py3-none-any.whl" }]
+    },
+    {
+      "name": "python3-pyasn1",
+      "buildsystem": "simple",
+      "build-commands": ["pip3 install --no-deps --ignore-installed --prefix /app pyasn1-0.4.8-py2.py3-none-any.whl pyasn1_modules-0.2.8-py2.py3-none-any.whl"],
+      "sources": [
+        { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/pyasn1-0.4.8-py2.py3-none-any.whl" },
+        { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/pyasn1_modules-0.2.8-py2.py3-none-any.whl" }
+      ]
+    },
+    {
+      "name": "python3-rsa",
+      "buildsystem": "simple",
+      "build-commands": ["pip3 install --no-deps --ignore-installed --prefix /app rsa-4.9-py3-none-any.whl"],
+      "sources": [{ "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/rsa-4.9-py3-none-any.whl" }]
+    },
+    {
+      "name": "python3-google-auth",
+      "buildsystem": "simple",
+      "build-commands": ["pip3 install --no-deps --ignore-installed --prefix /app google_auth-2.10.0-py2.py3-none-any.whl google_auth_httplib2-0.1.0-py2.py3-none-any.whl"],
+      "sources": [
+        { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/google_auth-2.10.0-py2.py3-none-any.whl" },
+        { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/google_auth_httplib2-0.1.0-py2.py3-none-any.whl" }
+      ]
+    },
+    {
+      "name": "python3-google-api-python-client",
+      "buildsystem": "simple",
+      "build-commands": ["pip3 install --no-deps --ignore-installed --prefix /app google_api_python_client-2.57.0-py2.py3-none-any.whl uritemplate-4.1.1-py2.py3-none-any.whl"],
+      "sources": [
+        { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/google_api_python_client-2.57.0-py2.py3-none-any.whl" },
+        { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/uritemplate-4.1.1-py2.py3-none-any.whl" }
+      ]
+    },
+    {
+      "name": "python3-google-api-core",
+      "buildsystem": "simple",
+      "build-commands": ["pip3 install --no-deps --ignore-installed --prefix /app google_api_core-2.8.2-py3-none-any.whl googleapis_common_protos-1.56.4-py2.py3-none-any.whl protobuf-4.21.5-cp37-abi3-manylinux2014_x86_64.whl"],
+      "sources": [
+        { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/google_api_core-2.8.2-py3-none-any.whl" },
+        { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/googleapis_common_protos-1.56.4-py2.py3-none-any.whl" },
+        { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/protobuf-4.21.5-cp37-abi3-manylinux2014_x86_64.whl" }
+      ]
+    },
+    {
+      "name": "python3-requests",
+      "buildsystem": "simple",
+      "build-commands": ["pip3 install --no-deps --ignore-installed --prefix /app certifi-2022.6.15-py3-none-any.whl charset_normalizer-2.1.0-py3-none-any.whl idna-3.3-py3-none-any.whl requests-2.28.1-py3-none-any.whl urllib3-1.26.11-py2.py3-none-any.whl"],
+      "sources": [
+        { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/certifi-2022.6.15-py3-none-any.whl" },
+        { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/charset_normalizer-2.1.0-py3-none-any.whl" },
+        { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/idna-3.3-py3-none-any.whl" },
+        { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/requests-2.28.1-py3-none-any.whl" },
+        { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/urllib3-1.26.11-py2.py3-none-any.whl" }
+      ]
+    },
+    {
+      "name": "python3-cachetools",
+      "buildsystem": "simple",
+      "build-commands": ["pip3 install --no-deps --ignore-installed --prefix /app cachetools-5.2.0-py3-none-any.whl"],
+      "sources": [{ "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/cachetools-5.2.0-py3-none-any.whl" }]
+    },
+    {
+      "name": "python3-oauth2client",
+      "buildsystem": "simple",
+      "build-commands": ["pip3 install --no-deps --ignore-installed --prefix /app oauth2client-4.1.3-py2.py3-none-any.whl six-1.16.0-py2.py3-none-any.whl python_dateutil-2.8.2-py2.py3-none-any.whl pyparsing-3.0.9-py3-none-any.whl"],
+      "sources": [
+        { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/oauth2client-4.1.3-py2.py3-none-any.whl" },
+        { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/six-1.16.0-py2.py3-none-any.whl" },
+        { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/python_dateutil-2.8.2-py2.py3-none-any.whl" },
+        { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/pyparsing-3.0.9-py3-none-any.whl" }
+      ]
+    },
+    {
+      "name": "python3-validate-email",
+      "buildsystem": "simple",
+      "build-commands": ["pip3 install --no-deps --ignore-installed --prefix /app validate_email-1.3-py3-none-any.whl"],
+      "sources": [{ "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/validate_email-1.3-py3-none-any.whl" }]
+    },
+    {
+      "name": "python3-rfc3339",
+      "buildsystem": "simple",
+      "build-commands": ["pip3 install --no-deps --ignore-installed --prefix /app rfc3339-6.2-py3-none-any.whl"],
+      "sources": [{ "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/rfc3339-6.2-py3-none-any.whl" }]
+    }
+  ]
+}
