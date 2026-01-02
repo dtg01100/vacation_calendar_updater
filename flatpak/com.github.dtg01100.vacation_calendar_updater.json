@@ -8,11 +8,11 @@
   "command": "vacation-calendar-updater",
   "finish-args": [
     "--share=network",
-    "--share=ipc",
     "--socket=x11",
     "--socket=wayland",
-    "--filesystem=home",
-    "--env=PYTHONPATH=/app"
+    "--filesystem=xdg-config",
+    "--env=PYTHONPATH=/app",
+    "--env=CLIENT_SECRET_PATH=/app/client_secret.json"
   ],
   "modules": [
     {
@@ -21,9 +21,13 @@
       "builddir": true,
       "sources": [{ "type": "dir", "path": "/tmp/vacation-flatpak-build" }],
       "build-commands": [
-        "mkdir -p /app/bin /app/share/applications",
+        "mkdir -p /app/bin /app/share/applications /app",
         "cp -r app /app/",
-        "install -D -m 755 main.py /app/bin/vacation-calendar-updater",
+        "cp client_secret.json /app/",
+        "# Create wrapper script that uses Python from PySide6 base app",
+        "echo '#!/usr/bin/env python3' > /app/bin/vacation-calendar-updater",
+        "echo 'from app.main import main; main()' >> /app/bin/vacation-calendar-updater",
+        "chmod +x /app/bin/vacation-calendar-updater",
         "install -D -m 644 com.github.dtg01100.vacation_calendar_updater.desktop /app/share/applications/com.github.dtg01100.vacation_calendar_updater.desktop"
       ]
     },
@@ -104,12 +108,6 @@
         { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/python_dateutil-2.8.2-py2.py3-none-any.whl" },
         { "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/pyparsing-3.0.9-py3-none-any.whl" }
       ]
-    },
-    {
-      "name": "python3-validate-email",
-      "buildsystem": "simple",
-      "build-commands": ["pip3 install --no-deps --ignore-installed --prefix /app validate_email-1.3-py3-none-any.whl"],
-      "sources": [{ "type": "file", "path": "/tmp/vacation-flatpak-build/flatpak/validate_email-1.3-py3-none-any.whl" }]
     },
     {
       "name": "python3-rfc3339",

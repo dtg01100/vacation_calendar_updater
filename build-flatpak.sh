@@ -9,9 +9,9 @@ BUILD_DIR="${SCRIPT_DIR}/build"
 SOURCE_DIR="/tmp/vacation-flatpak-build"
 
 # Verify flatpak-builder is installed
-if ! command -v flatpak-builder &> /dev/null; then
-    echo "Error: flatpak-builder is not installed"
-    exit 1
+if ! command -v flatpak-builder &>/dev/null; then
+	echo "Error: flatpak-builder is not installed"
+	exit 1
 fi
 
 echo "=== Preparing Flatpak build ==="
@@ -27,19 +27,23 @@ mkdir -p "$SOURCE_DIR"
 # Copy source files (excluding test files and build artifacts)
 echo "Copying source files..."
 rsync -av --exclude='*.pyc' --exclude='__pycache__' --exclude='*.pyo' \
-    --exclude='tests' --exclude='.git' --exclude='build' \
-    --exclude='.flatpak-builder' --exclude='.venv' \
-    "${SCRIPT_DIR}/" "$SOURCE_DIR/" 2>/dev/null || true
+	--exclude='tests' --exclude='.git' --exclude='build' \
+	--exclude='.flatpak-builder' --exclude='.venv' \
+	--exclude='.pytest_cache' --exclude='.mypy_cache' \
+	--exclude='.ruff_cache' --exclude='containerhome' \
+	--exclude='.devcontainer' --exclude='.vscode' --exclude='.idea' \
+	--exclude='dist' --exclude='uv.lock' \
+	"${SCRIPT_DIR}/" "$SOURCE_DIR/" 2>/dev/null || true
 
 # Ensure wheel files are in the flatpak directory
 if [ -d "${SCRIPT_DIR}/flatpak" ]; then
-    cp "${SCRIPT_DIR}/flatpak"/*.whl "$SOURCE_DIR/flatpak/" 2>/dev/null || true
-    cp "${SCRIPT_DIR}/flatpak"/*.tar.gz "$SOURCE_DIR/flatpak/" 2>/dev/null || true
+	cp "${SCRIPT_DIR}/flatpak"/*.whl "$SOURCE_DIR/flatpak/" 2>/dev/null || true
+	cp "${SCRIPT_DIR}/flatpak"/*.tar.gz "$SOURCE_DIR/flatpak/" 2>/dev/null || true
 fi
 
 # Ensure desktop file is in the source root
 if [ -f "${FLATPAK_DIR}/com.github.dtg01100.vacation_calendar_updater.desktop" ]; then
-    cp "${FLATPAK_DIR}/com.github.dtg01100.vacation_calendar_updater.desktop" "$SOURCE_DIR/"
+	cp "${FLATPAK_DIR}/com.github.dtg01100.vacation_calendar_updater.desktop" "$SOURCE_DIR/"
 fi
 
 echo "=== Building Flatpak ==="
@@ -47,8 +51,8 @@ echo "This may take several minutes..."
 
 # Build and install the Flatpak
 flatpak-builder --user --install --force-clean \
-    "$BUILD_DIR" \
-    "${FLATPAK_DIR}/com.github.dtg01100.vacation_calendar_updater.json"
+	"$BUILD_DIR" \
+	"${FLATPAK_DIR}/com.github.dtg01100.vacation_calendar_updater.json"
 
 echo ""
 echo "=== Flatpak build complete ==="
