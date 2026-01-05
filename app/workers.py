@@ -4,6 +4,7 @@ import datetime as dt
 import uuid
 from typing import Iterable
 
+from googleapiclient.errors import HttpError
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 
 from .services import CreatedEvent, EnhancedCreatedEvent, GoogleApi
@@ -119,26 +120,42 @@ class UndoWorker(QObject):
     def run(self) -> None:
         try:
             deleted_event_ids = []
+            skipped_events = []
             counter = 0
             event_names = set()
 
             for event in self.events:
                 # Create a basic CreatedEvent for the API
                 basic_event = CreatedEvent(event_id=event.event_id, calendar_id=event.calendar_id)
-                self.api.delete_event(basic_event)
-                deleted_event_ids.append(event.event_id)
-                event_names.add(event.event_name)
-                counter += 1
-                self.progress.emit(
-                    f"Deleted event {event.event_id} ({event.event_name}) on {event.start_time.date()}"
-                )
+                try:
+                    self.api.delete_event(basic_event)
+                    deleted_event_ids.append(event.event_id)
+                    event_names.add(event.event_name)
+                    counter += 1
+                    self.progress.emit(
+                        f"Deleted event {event.event_id} ({event.event_name}) on {event.start_time.date()}"
+                    )
+                except HttpError as e:
+                    # Handle events that no longer exist (404 or 410 status)
+                    if e.resp.status in (404, 410):
+                        skipped_events.append(event)
+                        self.progress.emit(
+                            f"Skipped event {event.event_id} ({event.event_name}) - already deleted or not found"
+                        )
+                        # Still count as processed since it's gone from calendar
+                        deleted_event_ids.append(event.event_id)
+                    else:
+                        # Re-raise other HTTP errors
+                        raise
 
-            if counter:
+            if counter or skipped_events:
                 # Create detailed email message
                 event_names_str = ", ".join(sorted(event_names))
                 message_text = f"{counter} calendar event(s) deleted:\n\n"
                 message_text += f"Event name(s): {event_names_str}\n"
                 message_text += f"Batch: {self.batch_description}\n"
+                if skipped_events:
+                    message_text += f"\n{len(skipped_events)} event(s) were already deleted or not found\n"
                 message_text += f"Deleted on: {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 
                 self.api.send_email(
