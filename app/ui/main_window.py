@@ -309,19 +309,28 @@ class MainWindow(QtWidgets.QMainWindow):
         """Keep start/end dates in chronological order when either changes."""
         start = self.start_date.date()
         end = self.end_date.date()
-        # Normalize: if start > end, pull end forward; if end < start, push start back
+        # Normalize keeping the date the user just edited as the source of truth
         if start.isValid() and end.isValid():
-            if start > end:
-                # Update end to match start
+            sender = self.sender()
+
+            if sender is self.start_date and start > end:
+                # User moved the start later than the end -> pull end forward
                 self.end_date.blockSignals(True)
                 self.end_date.setDate(start)
                 self.end_date.blockSignals(False)
                 end = start
-            elif end < start:
+            elif sender is self.end_date and end < start:
+                # User moved the end earlier than the start -> push start back
                 self.start_date.blockSignals(True)
                 self.start_date.setDate(end)
                 self.start_date.blockSignals(False)
                 start = end
+            elif start > end:
+                # Fallback for programmatic changes: align end to start
+                self.end_date.blockSignals(True)
+                self.end_date.setDate(start)
+                self.end_date.blockSignals(False)
+                end = start
         self._update_validation()
 
     def _build_time_picker(self, layout: QtWidgets.QGridLayout) -> None:
