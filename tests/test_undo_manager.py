@@ -280,6 +280,72 @@ def test_undo_manager_persistence_partial_load():
         assert loaded_count == 0
 
 
+def test_undo_manager_auto_save_with_backup():
+    """Test that save_history creates a backup and saves successfully."""
+    import tempfile
+    import os
+    import json
+
+    undo_manager = UndoManager()
+
+    # Create sample events
+    sample_events = [
+        EnhancedCreatedEvent(
+            event_id="event_1",
+            calendar_id="cal_1",
+            event_name="Test Event",
+            start_time=dt.datetime(2024, 1, 10, 9, 0),
+            end_time=dt.datetime(2024, 1, 10, 17, 0),
+            created_at=dt.datetime.now(),
+            batch_id="batch_1",
+            request_snapshot={"some": "data"},
+        )
+    ]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Add a batch and save
+        undo_manager.add_batch(sample_events, "First batch")
+        undo_manager.save_history(tmpdir)
+
+        history_file = os.path.join(tmpdir, "undo_history.json")
+        assert os.path.exists(history_file), "History file should be created"
+
+        # Read the saved data
+        with open(history_file, "r") as f:
+            saved_data = json.load(f)
+        assert len(saved_data["batches"]) == 1
+
+        # Add another batch and save again (should create backup)
+        more_events = [
+            EnhancedCreatedEvent(
+                event_id="event_3",
+                calendar_id="cal_1",
+                event_name="Another Event",
+                start_time=dt.datetime(2024, 1, 15, 9, 0),
+                end_time=dt.datetime(2024, 1, 15, 17, 0),
+                created_at=dt.datetime.now(),
+                batch_id="batch_2",
+                request_snapshot={"some": "data"},
+            )
+        ]
+        undo_manager.add_batch(more_events, "Second batch")
+        undo_manager.save_history(tmpdir)
+
+        backup_file = os.path.join(tmpdir, "undo_history.json.backup")
+        assert os.path.exists(backup_file), "Backup file should be created"
+
+        # Verify backup contains the first save (1 batch)
+        with open(backup_file, "r") as f:
+            backup_data = json.load(f)
+        assert len(backup_data["batches"]) == 1
+
+        # Verify main file contains both batches
+        with open(history_file, "r") as f:
+            current_data = json.load(f)
+        assert len(current_data["batches"]) == 2
+
+
+
 def test_selective_batch_undo():
     """Test that specific batches can be selected and undone independently."""
     undo_manager = UndoManager()

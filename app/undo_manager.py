@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import shutil
 import uuid
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -18,6 +19,7 @@ class UndoManager(QObject):
     history_changed = Signal()
     batch_undone = Signal(str)  # batch_id
     events_undone = Signal(str, list)  # batch_id, event_ids
+    save_failed = Signal(str)  # error_message
 
     def __init__(self, max_history: int = 50, parent=None):
         super().__init__(parent)
@@ -36,6 +38,18 @@ class UndoManager(QObject):
         else:
             file_path = Path(self.persistence_file)
 
+        # Ensure directory exists
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Create backup of existing file before overwriting
+        if file_path.exists():
+            backup_path = file_path.with_suffix(".json.backup")
+            try:
+                shutil.copy(file_path, backup_path)
+            except (IOError, OSError) as e:
+                # Continue even if backup fails - better to save without backup
+                print(f"Failed to create backup: {e}")
+
         data = {
             "version": 1,
             "max_history": self.max_history,
@@ -46,8 +60,10 @@ class UndoManager(QObject):
             with open(file_path, "w") as f:
                 json.dump(data, f, indent=2)
         except (IOError, OSError) as e:
-            # Log error but don't crash - undo history is non-critical
-            print(f"Failed to save undo history: {e}")
+            # Log error and emit signal for user notification
+            error_msg = f"Failed to save undo history: {e}"
+            print(error_msg)
+            self.save_failed.emit(error_msg)
 
     def load_history(self, directory: str | None = None) -> int:
         """Load undo history from a JSON file.
