@@ -39,19 +39,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.undo_worker: Optional[UndoWorker] = None
 
         # Use Qt standard paths for platform-appropriate app data directory
-        self._app_data_dir = (
-            Path(
-                QtCore.QStandardPaths.writableLocation(
-                    QtCore.QStandardPaths.StandardLocation.AppDataLocation
-                )
+        self._app_data_dir = Path(
+            QtCore.QStandardPaths.writableLocation(
+                QtCore.QStandardPaths.StandardLocation.AppDataLocation
             )
-            / "VacationCalendarUpdater"
         )
         self._app_data_dir.mkdir(parents=True, exist_ok=True)
         self.undo_manager.load_history(str(self._app_data_dir))
 
         # Connect undo manager signals
         self.undo_manager.history_changed.connect(self._update_undo_ui)
+        self.undo_manager.save_failed.connect(self._on_save_failed)
 
         self.setWindowTitle("Vacation Calendar Updater")
         self._init_services()
@@ -63,6 +61,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._setup_status_bar()
         self._apply_settings()
         self._update_validation()
+        # Update undo UI with any loaded history
+        self._update_undo_ui()
         # Start background loading after all UI is built
         self.progress_bar.setVisible(True)
         self.statusBar().showMessage("Connecting to Google Calendar...")
@@ -499,6 +499,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.created_events = events
         description = f"{len(events)} events: {events[0].event_name if events else 'Unknown'}"
         self.undo_manager.add_batch(events, description)
+        # Auto-save immediately to prevent data loss on crashes
+        self.undo_manager.save_history(str(self._app_data_dir))
         self._append_log(f"Done. Created {len(events)} events.")
         self._reset_creation_state()
         self._update_undo_ui()
@@ -554,6 +556,9 @@ class MainWindow(QtWidgets.QMainWindow):
             batch_id = self.undo_combo.currentData()
             if batch_id:
                 self.undo_manager.undo_batch(batch_id)
+        
+        # Auto-save immediately after undo to persist the updated state
+        self.undo_manager.save_history(str(self._app_data_dir))
 
         self.created_events = []
         self._stop_thread(self.undo_thread, self.undo_worker)
@@ -685,6 +690,14 @@ class MainWindow(QtWidgets.QMainWindow):
         """Show a temporary status message."""
         self.statusBar().showMessage(message, timeout)
 
+    def _on_save_failed(self, error_message: str) -> None:
+        """Handle save failure by showing a warning to the user."""
+        QtWidgets.QMessageBox.warning(
+            self,
+            "Save Error",
+            f"Failed to save undo history:\\n{error_message}\\n\\nYour calendar events are safe, but undo history may be incomplete.",
+        )
+
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:  # type: ignore[override]
         """Gracefully stop worker threads before the window closes."""
 
@@ -699,6 +712,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
 def launch() -> None:
     app = QtWidgets.QApplication(sys.argv)
+    app.setApplicationName("VacationCalendarUpdater")
+    app.setOrganizationName("dtg01100")
     api = GoogleApi()
     config = ConfigManager()
     window = MainWindow(api, config)
