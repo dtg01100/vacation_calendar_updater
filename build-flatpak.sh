@@ -6,7 +6,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FLATPAK_DIR="${SCRIPT_DIR}/flatpak"
 BUILD_DIR="${SCRIPT_DIR}/build"
-SOURCE_DIR="/tmp/vacation-flatpak-build"
+PIP_GENERATOR="${SCRIPT_DIR}/flatpak-builder-tools/pip/flatpak-pip-generator"
+TEMP_DIR="${BUILD_DIR}/source-temp"
 
 # Verify flatpak-builder is installed
 if ! command -v flatpak-builder &>/dev/null; then
@@ -20,31 +21,26 @@ echo "=== Preparing Flatpak build ==="
 rm -rf "$BUILD_DIR" "${SCRIPT_DIR}/.flatpak-builder" 2>/dev/null || true
 mkdir -p "$BUILD_DIR"
 
-# Create clean source directory for build
-rm -rf "$SOURCE_DIR" 2>/dev/null || true
-mkdir -p "$SOURCE_DIR"
+echo "=== Generating PyPI dependencies ==="
+# Generate pypi-dependencies.json using flatpak-pip-generator
+python3 "$PIP_GENERATOR" \
+	--requirements="${FLATPAK_DIR}/requirements-runtime.txt" \
+	--output="${FLATPAK_DIR}/pypi-dependencies.json"
 
-# Copy source files (excluding test files and build artifacts)
-echo "Copying source files..."
-rsync -av --exclude='*.pyc' --exclude='__pycache__' --exclude='*.pyo' \
-	--exclude='tests' --exclude='.git' --exclude='build' \
-	--exclude='.flatpak-builder' --exclude='.venv' \
-	--exclude='.pytest_cache' --exclude='.mypy_cache' \
-	--exclude='.ruff_cache' --exclude='containerhome' \
-	--exclude='.devcontainer' --exclude='.vscode' --exclude='.idea' \
-	--exclude='dist' --exclude='uv.lock' \
-	"${SCRIPT_DIR}/" "$SOURCE_DIR/" 2>/dev/null || true
+echo "=== Creating source tarball ==="
+# Create a clean tarball without git files
+mkdir -p "$TEMP_DIR"
+rsync -av --exclude='.git' --exclude='.flatpak-builder' --exclude='build' \
+	--exclude='__pycache__' --exclude='*.pyc' --exclude='.pytest_cache' \
+	--exclude='.mypy_cache' --exclude='.vscode' --exclude='.idea' \
+	--exclude='*.egg-info' --exclude='.eggs' --exclude='dist' \
+	--exclude='*.whl' --exclude='containerhome' --exclude='.devcontainer.json' \
+	--exclude='Dockerfile' --exclude='.gitmodules' \
+	"${SCRIPT_DIR}/" "$TEMP_DIR/" --include='app/***' --include='client_secret.json' --include='pyproject.toml' --include='flatpak/***' --include='run.sh' --exclude='*'
+tar -czf "${FLATPAK_DIR}/vacation-calendar-updater.tar.gz" -C "$TEMP_DIR" .
 
-# Ensure wheel files are in the flatpak directory
-if [ -d "${SCRIPT_DIR}/flatpak" ]; then
-	cp "${SCRIPT_DIR}/flatpak"/*.whl "$SOURCE_DIR/flatpak/" 2>/dev/null || true
-	cp "${SCRIPT_DIR}/flatpak"/*.tar.gz "$SOURCE_DIR/flatpak/" 2>/dev/null || true
-fi
-
-# Ensure desktop file is in the source root
-if [ -f "${FLATPAK_DIR}/com.github.dtg01100.vacation_calendar_updater.desktop" ]; then
-	cp "${FLATPAK_DIR}/com.github.dtg01100.vacation_calendar_updater.desktop" "$SOURCE_DIR/"
-fi
+# Copy tarball to a location flatpak-builder can find
+cp "${FLATPAK_DIR}/vacation-calendar-updater.tar.gz" "${SCRIPT_DIR}/"
 
 echo "=== Building Flatpak ==="
 echo "This may take several minutes..."
@@ -53,6 +49,9 @@ echo "This may take several minutes..."
 flatpak-builder --user --install --force-clean \
 	"$BUILD_DIR" \
 	"${FLATPAK_DIR}/com.github.dtg01100.vacation_calendar_updater.json"
+
+# Clean up temporary files
+rm -rf "$TEMP_DIR"
 
 echo ""
 echo "=== Flatpak build complete ==="
