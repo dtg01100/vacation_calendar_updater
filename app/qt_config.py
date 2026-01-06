@@ -1,3 +1,13 @@
+"""Deprecated: This module is kept for reference only.
+
+The functionality provided by QtConfigManager has been integrated into
+the ConfigManager class in config.py. ConfigManager now uses Qt's QSettings
+for production (with platform-specific paths) while maintaining backward
+compatibility with file-based configuration for testing.
+
+See config.py for the current implementation.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

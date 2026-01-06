@@ -107,12 +107,16 @@ class MainWindow(QtWidgets.QMainWindow):
             if summary and cal_id:
                 self.calendar_id_by_name[summary] = cal_id
 
-        # Update email if we got one from API
-        if email:
+        # Update email if we got one from API AND no email is currently saved
+        # This ensures we don't overwrite a user-entered email
+        if email and not self.settings.email_address:
             self.settings.email_address = email
             self.notification_email.setText(email)
+            # Save immediately when API provides email
+            self.config_manager.save(self.settings)
 
         # Update calendar dropdown
+        self.calendar_combo.blockSignals(True)
         self.calendar_combo.clear()
         self.calendar_combo.addItems(calendar_names)
 
@@ -121,6 +125,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self.calendar_combo.setCurrentText(self.settings.calendar)
         elif calendar_names:
             self.calendar_combo.setCurrentIndex(0)
+        self.calendar_combo.blockSignals(False)
+
+        # Update calendar_names for validation
+        self.calendar_names = calendar_names
 
         # Re-apply settings to update weekday checkboxes
         self._apply_settings()
@@ -295,13 +303,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.start_date.setDate(today)
         self.end_date.setDate(today)
 
-        # calendar selection
-        index = (
-            max(0, self.calendar_names.index(self.settings.calendar))
-            if self.settings.calendar in self.calendar_names
-            else 0
-        )
-        self.calendar_combo.setCurrentIndex(index)
+        # calendar selection - block signals to avoid triggering _update_validation
+        self.calendar_combo.blockSignals(True)
+        if self.settings.calendar in self.calendar_names:
+            self.calendar_combo.setCurrentText(self.settings.calendar)
+        elif self.calendar_names:
+            self.calendar_combo.setCurrentIndex(0)
+        self.calendar_combo.blockSignals(False)
 
         self.undo_button.setEnabled(False)
 
@@ -422,16 +430,28 @@ class MainWindow(QtWidgets.QMainWindow):
             and not self._undo_running()
         )
 
-        # save config opportunistically when valid
-        if request and not validation_errors:
-            self._save_settings(request)
-
     def _save_settings(self, request: ScheduleRequest) -> None:
         settings = Settings(
             email_address=request.notification_email,
             calendar=request.calendar_name,
             weekdays=self._current_weekdays(),
             send_email=request.send_email,
+        )
+        self.settings = settings
+        self.config_manager.save(settings)
+
+    def _save_settings_to_disk(self) -> None:
+        """Save current settings to disk (called on window close or app exit)."""
+        current_email = self.notification_email.text()
+        current_calendar = self.calendar_combo.currentText()
+        current_weekdays = self._current_weekdays()
+        current_send_email = self.send_email_checkbox.isChecked()
+
+        settings = Settings(
+            email_address=current_email,
+            calendar=current_calendar,
+            weekdays=current_weekdays,
+            send_email=current_send_email,
         )
         self.settings = settings
         self.config_manager.save(settings)
@@ -709,6 +729,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:  # type: ignore[override]
         """Gracefully stop worker threads before the window closes."""
+
+        # Save settings before closing
+        self._save_settings_to_disk()
 
         # Save undo history before stopping threads
         self.undo_manager.save_history(str(self._app_data_dir))
