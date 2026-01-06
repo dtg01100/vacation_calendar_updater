@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.github.dtg01100.vacation_calendar_updater</id>
+  <name>Vacation Calendar Updater</name>
+  <summary>Create and remove recurring vacation calendar events</summary>
+  <description>
+    <p>A tool for managing vacation calendar events in Google Calendar.</p>
+  </description>
+  <keywords>
+    <keyword>calendar</keyword>
+    <keyword>vacation</keyword>
+    <keyword>google</keyword>
+    <keyword>productivity</keyword>
+  </keywords>
+  <categories>
+    <category>Office</category>
+    <category>Utility</category>
+  </categories>
+  <launchable type="desktop-id">com.github.dtg01100.vacation_calendar_updater.desktop</launchable>
+  <provides>
+    <binary>vacation-calendar-updater</binary>
+  </provides>
+  <metadata_license>MIT</metadata_license>
+</component>
