@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
 import json
 import shutil
 import uuid
 from pathlib import Path
-from typing import Dict, List, Optional
+
 from PySide6.QtCore import QObject, Signal
 
 from .services import EnhancedCreatedEvent
@@ -23,7 +24,7 @@ class UndoManager(QObject):
 
     def __init__(self, max_history: int = 50, parent=None):
         super().__init__(parent)
-        self.undo_history: List[UndoBatch] = []
+        self.undo_history: list[UndoBatch] = []
         self.max_history = max_history
         self.persistence_file = "undo_history.json"
 
@@ -44,11 +45,9 @@ class UndoManager(QObject):
         # Create backup of existing file before overwriting
         if file_path.exists():
             backup_path = file_path.with_suffix(".json.backup")
-            try:
-                shutil.copy(file_path, backup_path)
-            except (IOError, OSError) as e:
+            with contextlib.suppress(OSError):
                 # Continue even if backup fails - better to save without backup
-                print(f"Failed to create backup: {e}")
+                shutil.copy(file_path, backup_path)
 
         data = {
             "version": 1,
@@ -59,10 +58,9 @@ class UndoManager(QObject):
         try:
             with open(file_path, "w") as f:
                 json.dump(data, f, indent=2)
-        except (IOError, OSError) as e:
+        except OSError as e:
             # Log error and emit signal for user notification
             error_msg = f"Failed to save undo history: {e}"
-            print(error_msg)
             self.save_failed.emit(error_msg)
 
     def load_history(self, directory: str | None = None) -> int:
@@ -83,7 +81,7 @@ class UndoManager(QObject):
             return 0
 
         try:
-            with open(file_path, "r") as f:
+            with open(file_path) as f:
                 data = json.load(f)
 
             # Handle version migration if needed in the future
@@ -98,8 +96,7 @@ class UndoManager(QObject):
                 try:
                     batch = UndoBatch.from_dict(batch_data)
                     self.undo_history.append(batch)
-                except (KeyError, ValueError) as e:
-                    print(f"Skipping invalid batch in undo history: {e}")
+                except (KeyError, ValueError):
                     continue
 
             # Restore max_history setting
@@ -113,11 +110,10 @@ class UndoManager(QObject):
             self.history_changed.emit()
             return len(self.undo_history)
 
-        except (IOError, OSError, json.JSONDecodeError) as e:
-            print(f"Failed to load undo history: {e}")
+        except (OSError, json.JSONDecodeError):
             return 0
 
-    def add_batch(self, events: List[EnhancedCreatedEvent], description: str) -> str:
+    def add_batch(self, events: list[EnhancedCreatedEvent], description: str) -> str:
         """Add a new batch of events to the undo history.
 
         Args:
@@ -150,7 +146,7 @@ class UndoManager(QObject):
         self.history_changed.emit()
         return batch_id
 
-    def undo_batch(self, batch_id: str) -> List[EnhancedCreatedEvent]:
+    def undo_batch(self, batch_id: str) -> list[EnhancedCreatedEvent]:
         """Undo an entire batch of events.
 
         Args:
@@ -176,8 +172,8 @@ class UndoManager(QObject):
         return batch.events
 
     def undo_events(
-        self, batch_id: str, event_ids: List[str]
-    ) -> List[EnhancedCreatedEvent]:
+        self, batch_id: str, event_ids: list[str]
+    ) -> list[EnhancedCreatedEvent]:
         """Undo specific events within a batch.
 
         Args:
@@ -216,15 +212,15 @@ class UndoManager(QObject):
 
         return events_to_undo
 
-    def get_undoable_batches(self) -> List[UndoBatch]:
+    def get_undoable_batches(self) -> list[UndoBatch]:
         """Get all batches that can be undone (not already undone)."""
         return [batch for batch in self.undo_history if not batch.is_undone]
 
-    def get_recent_batches(self, limit: int = 5) -> List[UndoBatch]:
+    def get_recent_batches(self, limit: int = 5) -> list[UndoBatch]:
         """Get the most recent batches (both undone and not undone)."""
         return self.undo_history[:limit]
 
-    def get_batch_by_id(self, batch_id: str) -> Optional[UndoBatch]:
+    def get_batch_by_id(self, batch_id: str) -> UndoBatch | None:
         """Get a specific batch by ID."""
         return self._find_batch(batch_id)
 
@@ -255,7 +251,7 @@ class UndoManager(QObject):
 
         return removed_count
 
-    def get_history_stats(self) -> Dict[str, int]:
+    def get_history_stats(self) -> dict[str, int]:
         """Get statistics about the undo history."""
         undoable = len(self.get_undoable_batches())
         total_events = sum(len(batch.events) for batch in self.undo_history)
@@ -270,7 +266,7 @@ class UndoManager(QObject):
             "undoable_events": undoable_events,
         }
 
-    def _find_batch(self, batch_id: str) -> Optional[UndoBatch]:
+    def _find_batch(self, batch_id: str) -> UndoBatch | None:
         """Find a batch by ID."""
         for batch in self.undo_history:
             if batch.batch_id == batch_id:
@@ -281,7 +277,7 @@ class UndoManager(QObject):
         """Check if there are any batches that can be undone."""
         return len(self.get_undoable_batches()) > 0
 
-    def get_most_recent_batch(self) -> Optional[UndoBatch]:
+    def get_most_recent_batch(self) -> UndoBatch | None:
         """Get the most recent batch that can be undone."""
         undoable = self.get_undoable_batches()
         return undoable[0] if undoable else None

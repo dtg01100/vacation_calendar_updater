@@ -1,16 +1,16 @@
 from __future__ import annotations
 
+import argparse
 import base64
+import datetime as dt
 import os
 import sys
 from dataclasses import dataclass
 from email.mime.text import MIMEText
 from pathlib import Path
-import datetime as dt
 
 import httplib2
 import rfc3339
-import argparse
 from googleapiclient import discovery
 from oauth2client import client, tools
 from oauth2client.file import Storage
@@ -49,8 +49,7 @@ def resource_path(relative_path: str) -> str:
 
 
 def compat_urlsafe_b64encode(value: str) -> str:
-    if sys.version_info[0] >= 3:
-        return base64.urlsafe_b64encode(value.encode("utf-8")).decode("ascii")
+    return base64.urlsafe_b64encode(value.encode("utf-8")).decode("ascii")
     return base64.urlsafe_b64encode(value)  # pragma: no cover - py2 fallback
 
 
@@ -78,7 +77,9 @@ class GoogleApi:
         self._calendar_service = discovery.build(
             "calendar", "v3", http=http, static_discovery=False
         )
-        self._gmail_service = discovery.build("gmail", "v1", http=http, static_discovery=False)
+        self._gmail_service = discovery.build(
+            "gmail", "v1", http=http, static_discovery=False
+        )
 
     def calendar_service(self):
         self.ensure_connected()
@@ -100,13 +101,14 @@ class GoogleApi:
         calendars: list[dict] = []
         while True:
             calendar_list_from_net = (
-                self._calendar_service.calendarList().list(pageToken=page_token).execute()
+                self._calendar_service.calendarList()
+                .list(pageToken=page_token)
+                .execute()
             )
             calendars.extend(calendar_list_from_net.get("items", []))
             for entry in calendar_list_from_net.get("items", []):
-                if entry.get("accessRole") != "reader":
-                    if "summary" in entry:
-                        calendar_summary_list.append(entry["summary"])
+                if entry.get("accessRole") != "reader" and "summary" in entry:
+                    calendar_summary_list.append(entry["summary"])
             page_token = calendar_list_from_net.get("nextPageToken")
             if not page_token:
                 break
@@ -120,7 +122,11 @@ class GoogleApi:
             "end": {"dateTime": rfc3339.rfc3339(end)},
             "reminders": {"useDefault": False},
         }
-        event = self._calendar_service.events().insert(calendarId=calendar_id, body=body).execute()
+        event = (
+            self._calendar_service.events()
+            .insert(calendarId=calendar_id, body=body)
+            .execute()
+        )
         return CreatedEvent(event_id=event.get("id"), calendar_id=calendar_id)
 
     def delete_event(self, created_event: CreatedEvent) -> None:
@@ -129,7 +135,9 @@ class GoogleApi:
             calendarId=created_event.calendar_id, eventId=created_event.event_id
         ).execute()
 
-    def send_email(self, recipient: str, subject: str, body: str, *, enabled: bool) -> None:
+    def send_email(
+        self, recipient: str, subject: str, body: str, *, enabled: bool
+    ) -> None:
         if not enabled:
             return
         self.ensure_connected()
@@ -147,7 +155,9 @@ class GoogleApi:
         # Use Qt's standard paths for cross-platform config directory
         from PySide6 import QtCore
 
-        config_dir = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.ConfigLocation)
+        config_dir = QtCore.QStandardPaths.writableLocation(
+            QtCore.QStandardPaths.ConfigLocation
+        )
         credential_dir = Path(config_dir) / "credentials"
         credential_dir.mkdir(parents=True, exist_ok=True)
         credential_path = credential_dir / self.credential_name
@@ -164,7 +174,7 @@ class GoogleApi:
             try:
                 flag_parser = argparse.ArgumentParser(parents=[tools.argparser])
                 flags = flag_parser.parse_args([])
-            except Exception:  # noqa: BLE001
+            except Exception:
                 flags = None
             if flags:
                 credentials = tools.run_flow(flow, store, flags)

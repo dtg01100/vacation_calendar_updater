@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import configparser
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-import configparser
-from typing import Iterable, Mapping
+
 from PySide6 import QtCore
 
 SETTINGS_SECTION = "settings"
@@ -31,15 +32,15 @@ class Settings:
 
 class ConfigManager:
     """Configuration manager using Qt's QSettings for cross-platform support.
-    
+
     Stores settings in platform-appropriate locations:
     - Linux: ~/.config/VacationCalendarUpdater/Settings.ini
     - macOS: ~/Library/Preferences/VacationCalendarUpdater.plist or .ini
     - Windows: Registry (HKEY_CURRENT_USER\\Software\\VacationCalendarUpdater) or AppData
-    
+
     For testing, accepts an optional path parameter to use file-based storage.
     """
-    
+
     def __init__(self, path: Path | None = None) -> None:
         # If a custom path is provided (for testing), use file-based storage
         if path:
@@ -117,10 +118,12 @@ class ConfigManager:
 
         return settings
 
-    def _ensure_defaults_qt(self, default_email: str, calendar_options: Iterable[str]) -> Settings:
+    def _ensure_defaults_qt(
+        self, default_email: str, calendar_options: Iterable[str]
+    ) -> Settings:
         """Qt-based implementation (for production)."""
         calendar_options = list(calendar_options)
-        
+
         if not self._qt_settings.contains("email_address"):
             self._qt_settings.setValue("email_address", default_email)
 
@@ -164,7 +167,9 @@ class ConfigManager:
         config.set(SETTINGS_SECTION, "email_address", settings.email_address)
         config.set(SETTINGS_SECTION, "calendar", settings.calendar)
         for key in WEEKDAY_KEYS:
-            config.set(SETTINGS_SECTION, key, str(bool(settings.weekdays.get(key, False))))
+            config.set(
+                SETTINGS_SECTION, key, str(bool(settings.weekdays.get(key, False)))
+            )
         config.set(SETTINGS_SECTION, "send_email", str(bool(settings.send_email)))
         self._write(config)
 
@@ -193,7 +198,9 @@ class ConfigManager:
 
     def _to_settings_file(self, config: configparser.RawConfigParser) -> Settings:
         section = SETTINGS_SECTION
-        weekdays = {key: config.getboolean(section, key, fallback=True) for key in WEEKDAY_KEYS}
+        weekdays = {
+            key: config.getboolean(section, key, fallback=True) for key in WEEKDAY_KEYS
+        }
         return Settings(
             email_address=config.get(section, "email_address", fallback=""),
             calendar=config.get(section, "calendar", fallback=""),
@@ -208,8 +215,12 @@ class ConfigManager:
             weekdays[key] = self._qt_settings.value(key, defaultValue=True, type=bool)
 
         return Settings(
-            email_address=self._qt_settings.value("email_address", defaultValue="", type=str),
+            email_address=self._qt_settings.value(
+                "email_address", defaultValue="", type=str
+            ),
             calendar=self._qt_settings.value("calendar", defaultValue="", type=str),
             weekdays=weekdays,
-            send_email=self._qt_settings.value("send_email", defaultValue=True, type=bool),
+            send_email=self._qt_settings.value(
+                "send_email", defaultValue=True, type=bool
+            ),
         )

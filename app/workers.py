@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from typing import Iterable
+from collections.abc import Iterable
 
 from googleapiclient.errors import HttpError
 from PySide6.QtCore import QObject, QThread, Signal, Slot
@@ -17,7 +17,9 @@ class EventCreationWorker(QObject):
     error = Signal(str)
     stopped = Signal()
 
-    def __init__(self, api: GoogleApi, calendar_id: str, request: ScheduleRequest) -> None:
+    def __init__(
+        self, api: GoogleApi, calendar_id: str, request: ScheduleRequest
+    ) -> None:
         super().__init__()
         self.api = api
         self.calendar_id = calendar_id
@@ -91,7 +93,7 @@ class EventCreationWorker(QObject):
                 if self.request.send_email:
                     self.progress.emit("Notification email sent")
             self.finished.emit(created)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             self.error.emit(str(exc))
 
 
@@ -126,7 +128,9 @@ class UndoWorker(QObject):
 
             for event in self.events:
                 # Create a basic CreatedEvent for the API
-                basic_event = CreatedEvent(event_id=event.event_id, calendar_id=event.calendar_id)
+                basic_event = CreatedEvent(
+                    event_id=event.event_id, calendar_id=event.calendar_id
+                )
                 try:
                     self.api.delete_event(basic_event)
                     deleted_event_ids.append(event.event_id)
@@ -156,7 +160,9 @@ class UndoWorker(QObject):
                 message_text += f"Batch: {self.batch_description}\n"
                 if skipped_events:
                     message_text += f"\n{len(skipped_events)} event(s) were already deleted or not found\n"
-                message_text += f"Deleted on: {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                message_text += (
+                    f"Deleted on: {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                )
 
                 self.api.send_email(
                     self.notification_email,
@@ -167,7 +173,7 @@ class UndoWorker(QObject):
                 if self.send_email:
                     self.progress.emit("Deletion email sent")
             self.finished.emit(deleted_event_ids)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             self.error.emit(str(exc))
 
 
@@ -177,7 +183,7 @@ class StartupWorker(QThread):
     finished = Signal(tuple)  # (user_email, (calendar_names, calendar_items))
     error = Signal(str)
 
-    def __init__(self, api: "GoogleApi") -> None:
+    def __init__(self, api: GoogleApi) -> None:
         super().__init__()
         self.api = api
 
@@ -186,5 +192,5 @@ class StartupWorker(QThread):
             user_email = self.api.user_email()
             calendar_names, calendar_items = self.api.list_calendars()
             self.finished.emit((user_email, (calendar_names, calendar_items)))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             self.error.emit(str(exc))

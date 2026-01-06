@@ -10,8 +10,9 @@ See config.py for the current implementation.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
+
 from PySide6 import QtCore
 
 

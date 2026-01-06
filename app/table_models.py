@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any
+
 from PySide6 import QtCore
-from PySide6.QtCore import QAbstractTableModel, Qt, QModelIndex
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 
 from app.services import EnhancedCreatedEvent
 
@@ -10,7 +11,7 @@ from app.services import EnhancedCreatedEvent
 class EventTableModel(QAbstractTableModel):
     """Table model for displaying events in a QTableView."""
 
-    def __init__(self, events: List[EnhancedCreatedEvent], parent=None):
+    def __init__(self, events: list[EnhancedCreatedEvent], parent=None):
         super().__init__(parent)
         self._events = events
         self._headers = [
@@ -22,11 +23,11 @@ class EventTableModel(QAbstractTableModel):
             "Status",
         ]
 
-    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
+    def rowCount(self, parent: QModelIndex | None = None) -> int:
         """Return the number of rows in the model."""
         return len(self._events)
 
-    def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
+    def columnCount(self, parent: QModelIndex | None = None) -> int:
         """Return the number of columns in the model."""
         return len(self._headers)
 
@@ -87,7 +88,7 @@ class EventTableModel(QAbstractTableModel):
 
         return None
 
-    def updateEvents(self, events: List[EnhancedCreatedEvent]) -> None:
+    def updateEvents(self, events: list[EnhancedCreatedEvent]) -> None:
         """Update the events in the model."""
         self.beginResetModel()
         self._events = events.copy()
@@ -106,7 +107,7 @@ class EventTableModel(QAbstractTableModel):
             del self._events[row]
             self.endRemoveRows()
 
-    def getEvent(self, row: int) -> Optional[EnhancedCreatedEvent]:
+    def getEvent(self, row: int) -> EnhancedCreatedEvent | None:
         """Get an event by row index."""
         if 0 <= row < len(self._events):
             return self._events[row]
@@ -116,15 +117,15 @@ class EventTableModel(QAbstractTableModel):
 class UndoHistoryTableModel(QAbstractTableModel):
     """Table model for displaying undo history batches."""
 
-    def __init__(self, batches: List, parent=None):
+    def __init__(self, batches: list, parent=None):
         super().__init__(parent)
         self._batches = batches
         self._headers = ["Date Created", "Description", "Events", "Status", "Actions"]
 
-    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
+    def rowCount(self, parent: QModelIndex | None = None) -> int:
         return len(self._batches)
 
-    def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
+    def columnCount(self, parent: QModelIndex | None = None) -> int:
         return len(self._headers)
 
     def headerData(

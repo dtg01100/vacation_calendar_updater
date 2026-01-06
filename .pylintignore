@@ -1,0 +1,8 @@
+# Ignore vendor and build directories
+^app/_vendor/
+^build/
+^dist/
+^.*\.egg-info
+^\.venv/
+^__pycache__/
+^\.pytest_cache/

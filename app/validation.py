@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import datetime as dt
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from dateutil.parser import parse
 from dateutil.rrule import DAILY, FR, MO, SA, SU, TH, TU, WE, rrule
@@ -91,7 +92,7 @@ class UndoBatch:
         }
 
     @staticmethod
-    def from_dict(data: dict) -> "UndoBatch":
+    def from_dict(data: dict) -> UndoBatch:
         """Reconstruct UndoBatch from dictionary."""
         from .services import EnhancedCreatedEvent
 
@@ -190,9 +191,11 @@ def build_schedule(req: ScheduleRequest) -> list[tuple[dt.datetime, dt.datetime]
     end_dt = dt.datetime.combine(req.end_date, req.start_time)
     end_increment = dt.timedelta(hours=req.day_length_hours)
 
-    start_list = list(rrule(DAILY, byweekday=tuple(weekday_list), dtstart=start_dt, until=end_dt))
+    start_list = list(
+        rrule(DAILY, byweekday=tuple(weekday_list), dtstart=start_dt, until=end_dt)
+    )
     stop_list = [s + end_increment for s in start_list]
-    return list(zip(start_list, stop_list))
+    return list(zip(start_list, stop_list, strict=False))
 
 
 def validate_request(req: ScheduleRequest) -> list[str]:

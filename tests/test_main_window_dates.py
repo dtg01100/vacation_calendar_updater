@@ -12,10 +12,14 @@ class DummyApi:
     def list_calendars(self):
         return [], []
 
-    def create_event(self, *args, **kwargs):  # pragma: no cover - not used in these tests
+    def create_event(
+        self, *args, **kwargs
+    ):  # pragma: no cover - not used in these tests
         raise AssertionError("create_event should not be called in this test")
 
-    def delete_event(self, *args, **kwargs):  # pragma: no cover - not used in these tests
+    def delete_event(
+        self, *args, **kwargs
+    ):  # pragma: no cover - not used in these tests
         raise AssertionError("delete_event should not be called in this test")
 
     def send_email(self, *args, **kwargs):  # pragma: no cover - not used in these tests

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import datetime as dt
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from app.services import GoogleApi, EnhancedCreatedEvent, CreatedEvent
+from app.services import CreatedEvent, EnhancedCreatedEvent, GoogleApi
 
 
 class TestGoogleApi:
@@ -59,7 +59,7 @@ class TestEnhancedCreatedEvent:
             batch_id="batch1",
             request_snapshot={"day_length_hours": 1},
         )
-        
+
         assert event.event_id == "evt123"
         assert event.calendar_id == "cal456"
         assert event.event_name == "Test Event"
@@ -67,8 +67,10 @@ class TestEnhancedCreatedEvent:
 
     def test_enhanced_event_timezone_preservation(self):
         """Test that event times preserve timezone info."""
-        tz_aware_time = dt.datetime(2024, 6, 15, 14, 30, 0, tzinfo=dt.timezone(dt.timedelta(hours=2)))
-        
+        tz_aware_time = dt.datetime(
+            2024, 6, 15, 14, 30, 0, tzinfo=dt.timezone(dt.timedelta(hours=2))
+        )
+
         event = EnhancedCreatedEvent(
             event_id="event456",
             calendar_id="cal456",
@@ -79,7 +81,7 @@ class TestEnhancedCreatedEvent:
             batch_id="batch2",
             request_snapshot={},
         )
-        
+
         assert event.event_id == "event456"
         assert event.start_time.tzinfo is not None
 
@@ -95,7 +97,7 @@ class TestEnhancedCreatedEvent:
             batch_id="batch4",
             request_snapshot={"test": True},
         )
-        
+
         # Serialize to dict
         data = {
             "event_id": original.event_id,
@@ -107,7 +109,7 @@ class TestEnhancedCreatedEvent:
             "batch_id": original.batch_id,
             "request_snapshot": original.request_snapshot,
         }
-        
+
         # Deserialize back
         restored = EnhancedCreatedEvent(
             event_id=data["event_id"],
@@ -119,7 +121,7 @@ class TestEnhancedCreatedEvent:
             batch_id=data["batch_id"],
             request_snapshot=data["request_snapshot"],
         )
-        
+
         assert restored.event_id == original.event_id
         assert restored.start_time == original.start_time
 
@@ -130,7 +132,7 @@ class TestCreatedEvent:
     def test_created_event_creation(self):
         """Test that CreatedEvent can be created with required fields."""
         event = CreatedEvent(event_id="evt123", calendar_id="cal456")
-        
+
         assert event.event_id == "evt123"
         assert event.calendar_id == "cal456"
 
@@ -138,14 +140,14 @@ class TestCreatedEvent:
         """Test that two CreatedEvents with same values are equal."""
         event1 = CreatedEvent(event_id="evt789", calendar_id="cal123")
         event2 = CreatedEvent(event_id="evt789", calendar_id="cal123")
-        
+
         assert event1 == event2
 
     def test_created_event_inequality(self):
         """Test that two CreatedEvents with different values are not equal."""
         event1 = CreatedEvent(event_id="evt1", calendar_id="cal1")
         event2 = CreatedEvent(event_id="evt2", calendar_id="cal2")
-        
+
         assert event1 != event2
 
 
@@ -155,7 +157,7 @@ class TestEventHelpers:
     def test_enhanced_from_created_event(self):
         """Test creating EnhancedCreatedEvent from CreatedEvent."""
         created = CreatedEvent(event_id="enhanced-test", calendar_id="cal1")
-        
+
         enhanced = EnhancedCreatedEvent(
             event_id=created.event_id,
             calendar_id=created.calendar_id,
@@ -166,7 +168,7 @@ class TestEventHelpers:
             batch_id="batch-1",
             request_snapshot={},
         )
-        
+
         assert enhanced.event_id == created.event_id
         assert enhanced.calendar_id == created.calendar_id
         assert enhanced.event_name == "Enhanced from Created"

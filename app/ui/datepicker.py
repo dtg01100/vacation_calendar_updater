@@ -49,7 +49,9 @@ class DatePicker(QtWidgets.QDateEdit):
         if cal.isVisible():
             cal.hide()
             return
-        cal.setSelectedDate(self.date() if self.date().isValid() else QtCore.QDate.currentDate())
+        cal.setSelectedDate(
+            self.date() if self.date().isValid() else QtCore.QDate.currentDate()
+        )
         cal.move(self.mapToGlobal(QtCore.QPoint(0, self.height())))
         cal.show()
         cal.raise_()
@@ -75,4 +77,5 @@ class DatePicker(QtWidgets.QDateEdit):
         }
         for seq, handler in shortcuts.items():
             QtGui.QShortcut(QtGui.QKeySequence(seq), self, activated=handler)
+
     # endregion

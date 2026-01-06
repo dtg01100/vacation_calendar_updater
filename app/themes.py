@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Dict
+from typing import ClassVar
+
 from PySide6 import QtWidgets
 
 
@@ -8,7 +9,7 @@ class ThemeManager:
     """Manages Qt application themes using QSS (Qt Style Sheets)."""
 
     # Predefined themes
-    THEMES = {
+    THEMES: ClassVar[dict] = {
         "default": {
             "name": "Default",
             "description": "Clean default theme",
@@ -376,7 +377,7 @@ QComboBox:focus {
         """Get the currently applied theme name."""
         return self.current_theme
 
-    def get_available_themes(self) -> Dict[str, Dict[str, str]]:
+    def get_available_themes(self) -> dict[str, dict[str, str]]:
         """Get dictionary of available themes."""
         return {
             name: {"name": theme["name"], "description": theme["description"]}
@@ -406,7 +407,7 @@ QComboBox:focus {
                 action.setChecked(True)
 
             action.triggered.connect(
-                lambda checked, name=theme_name: self._on_theme_changed(name)
+                lambda _checked=False, name=theme_name: self._on_theme_changed(name)
             )
             theme_group.addAction(action)
             theme_menu.addAction(action)
@@ -416,7 +417,7 @@ QComboBox:focus {
         if self.app and theme_name != self.current_theme:
             self.apply_theme(self.app, theme_name)
 
-    def create_theme_settings_manager(self) -> "ThemeSettingsManager":
+    def create_theme_settings_manager(self) -> ThemeSettingsManager:
         """Create a settings manager for theme preferences."""
         return ThemeSettingsManager()
 

@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..config import ConfigManager, Settings
 from ..services import EnhancedCreatedEvent, GoogleApi
-from ..workers import StartupWorker
+from ..undo_manager import UndoManager
 from ..validation import (
     ScheduleRequest,
     build_schedule,
@@ -16,8 +15,7 @@ from ..validation import (
     parse_time,
     validate_request,
 )
-from ..workers import EventCreationWorker, UndoWorker
-from ..undo_manager import UndoManager
+from ..workers import EventCreationWorker, StartupWorker, UndoWorker
 from .datepicker import DatePicker
 
 
@@ -26,17 +24,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self,
         api: GoogleApi,
         config: ConfigManager,
-        parent: Optional[QtWidgets.QWidget] = None,
+        parent: QtWidgets.QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.api = api
         self.config_manager = config
         self.undo_manager = UndoManager(parent=self)
         self.created_events: list[EnhancedCreatedEvent] = []
-        self.creation_thread: Optional[QtCore.QThread] = None
-        self.undo_thread: Optional[QtCore.QThread] = None
-        self.creation_worker: Optional[EventCreationWorker] = None
-        self.undo_worker: Optional[UndoWorker] = None
+        self.creation_thread: QtCore.QThread | None = None
+        self.undo_thread: QtCore.QThread | None = None
+        self.creation_worker: EventCreationWorker | None = None
+        self.undo_worker: UndoWorker | None = None
 
         # Use Qt standard paths for platform-appropriate app data directory
         self._app_data_dir = Path(
@@ -77,7 +75,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.user_email = self.settings.email_address
         self.calendar_names: list[str] = []
         self.calendar_items: list[dict[str, str]] = []
-        self.calendar_id_by_name: Dict[str, str] = {}
+        self.calendar_id_by_name: dict[str, str] = {}
 
         # Create and configure startup worker (will be started after UI is built)
         self._startup_worker = StartupWorker(self.api)
@@ -188,7 +186,7 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addWidget(self.day_length, 2, 3)
 
         # Row 3 Weekdays
-        self.weekday_boxes: Dict[str, QtWidgets.QCheckBox] = {}
+        self.weekday_boxes: dict[str, QtWidgets.QCheckBox] = {}
         weekday_frame = QtWidgets.QFrame()
         weekday_layout = QtWidgets.QHBoxLayout()
         weekday_frame.setLayout(weekday_layout)
@@ -263,9 +261,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 widget.toggled.connect(self._update_validation)
             elif isinstance(widget, QtWidgets.QLineEdit):
                 widget.textChanged.connect(self._update_validation)
-            elif isinstance(widget, QtWidgets.QTimeEdit):
-                widget.timeChanged.connect(self._update_validation)
-            elif isinstance(widget, QtWidgets.QTimeEdit):
+            elif isinstance(widget, (QtWidgets.QTimeEdit, QtWidgets.QTimeEdit)):
                 widget.timeChanged.connect(self._update_validation)
             elif isinstance(widget, QtWidgets.QComboBox):
                 widget.currentIndexChanged.connect(self._update_validation)
@@ -282,7 +278,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Permanent status widget for undo history
         self.undo_status_label = QtWidgets.QLabel("No undo history")
-        self.undo_status_label.setToolTip("Shows the number of batches available to undo")
+        self.undo_status_label.setToolTip(
+            "Shows the number of batches available to undo"
+        )
         status_bar.addPermanentWidget(self.undo_status_label)
 
         # Initial status message
@@ -351,7 +349,9 @@ class MainWindow(QtWidgets.QMainWindow):
         container.setLayout(hbox)
 
         time_button = QtWidgets.QToolButton()
-        icon = self.style().standardIcon(QtWidgets.QStyle.StandardPixmap.SP_BrowserReload)
+        icon = self.style().standardIcon(
+            QtWidgets.QStyle.StandardPixmap.SP_BrowserReload
+        )
         if icon.isNull():
             time_button.setText("⋯")
         else:
@@ -374,12 +374,14 @@ class MainWindow(QtWidgets.QMainWindow):
             for minute in (0, 15, 30, 45):
                 t = QtCore.QTime(hour, minute)
                 action = menu.addAction(t.toString("HH:mm"))
-                action.triggered.connect(lambda checked=False, tt=t: self.start_time.setTime(tt))
+                action.triggered.connect(
+                    lambda _checked=False, tt=t: self.start_time.setTime(tt)
+                )
 
     def _current_weekdays(self) -> dict[str, bool]:
         return {key: box.isChecked() for key, box in self.weekday_boxes.items()}
 
-    def _collect_request(self) -> Optional[ScheduleRequest]:
+    def _collect_request(self) -> ScheduleRequest | None:
         try:
             start_date = parse_date(self.start_date.date())
             end_date = parse_date(self.end_date.date())
@@ -403,7 +405,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _update_validation(self) -> None:
         request = self._collect_request()
-        validation_errors: List[str] = []
+        validation_errors: list[str] = []
         if request:
             validation_errors = validate_request(request)
         else:
@@ -423,7 +425,9 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.days_label.setText("check settings")
 
-        self.process_button.setEnabled(len(validation_errors) == 0 and not self._creation_running())
+        self.process_button.setEnabled(
+            len(validation_errors) == 0 and not self._creation_running()
+        )
         self.undo_button.setEnabled(
             self.undo_manager.can_undo()
             and not self._creation_running()
@@ -526,7 +530,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _on_creation_finished(self, events: list[EnhancedCreatedEvent]) -> None:
         self.created_events = events
-        description = f"{len(events)} events: {events[0].event_name if events else 'Unknown'}"
+        description = (
+            f"{len(events)} events: {events[0].event_name if events else 'Unknown'}"
+        )
         self.undo_manager.add_batch(events, description)
         # Auto-save immediately to prevent data loss on crashes
         self.undo_manager.save_history(str(self._app_data_dir))
@@ -585,7 +591,7 @@ class MainWindow(QtWidgets.QMainWindow):
             batch_id = self.undo_combo.currentData()
             if batch_id:
                 self.undo_manager.undo_batch(batch_id)
-        
+
         # Auto-save immediately after undo to persist the updated state
         self.undo_manager.save_history(str(self._app_data_dir))
 
@@ -608,7 +614,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _append_log(self, message: str) -> None:
         self.log_box.appendPlainText(message)
-        self.log_box.verticalScrollBar().setValue(self.log_box.verticalScrollBar().maximum())
+        self.log_box.verticalScrollBar().setValue(
+            self.log_box.verticalScrollBar().maximum()
+        )
 
     def _reset_creation_state(self) -> None:
         self._toggle_inputs(True)
@@ -638,7 +646,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def _undo_running(self) -> bool:
         return bool(self.undo_thread and self.undo_thread.isRunning())
 
-    def _stop_thread(self, thread: Optional[QtCore.QThread], worker: Optional[object]) -> None:
+    def _stop_thread(
+        self, thread: QtCore.QThread | None, worker: object | None
+    ) -> None:
         if thread is not None:
             try:
                 # Check if thread is still valid and running

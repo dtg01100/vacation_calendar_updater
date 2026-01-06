@@ -1,22 +1,34 @@
 import datetime as dt
 
-import pytest
-
-from app.validation import ScheduleRequest, build_schedule, parse_date, parse_time, validate_request
+from app.validation import (
+    ScheduleRequest,
+    build_schedule,
+    parse_date,
+    parse_time,
+    validate_request,
+)
 
 
 def _req(**overrides):
-    base = dict(
-        event_name="Vacation",
-        notification_email="user@example.com",
-        calendar_name="Test",
-        start_date=dt.date(2024, 1, 1),
-        end_date=dt.date(2024, 1, 5),
-        start_time=dt.time(8, 0),
-        day_length_hours=8.0,
-        weekdays={"monday": True, "tuesday": True, "wednesday": True, "thursday": True, "friday": True, "saturday": False, "sunday": False},
-        send_email=True,
-    )
+    base = {
+        "event_name": "Vacation",
+        "notification_email": "user@example.com",
+        "calendar_name": "Test",
+        "start_date": dt.date(2024, 1, 1),
+        "end_date": dt.date(2024, 1, 5),
+        "start_time": dt.time(8, 0),
+        "day_length_hours": 8.0,
+        "weekdays": {
+            "monday": True,
+            "tuesday": True,
+            "wednesday": True,
+            "thursday": True,
+            "friday": True,
+            "saturday": False,
+            "sunday": False,
+        },
+        "send_email": True,
+    }
     base.update(overrides)
     return ScheduleRequest(**base)
 
@@ -35,7 +47,7 @@ def test_validate_request_rejects_invalid_email():
 
 
 def test_validate_request_requires_weekday():
-    req = _req(weekdays={day: False for day in req_weekdays()})
+    req = _req(weekdays=dict.fromkeys(req_weekdays(), False))
     errors = validate_request(req)
     assert any("weekday" in err.lower() for err in errors)
 
@@ -47,4 +59,12 @@ def test_parse_helpers_accept_multiple_formats():
 
 
 def req_weekdays():
-    return ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+    return [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+    ]

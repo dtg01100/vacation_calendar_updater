@@ -1,0 +1,75 @@
+[MASTER]
+# Add files or directories to the blacklist. They should be base names, not paths.
+ignore=_vendor,__pycache__
+
+# Specify a configuration file.
+# rcfile=
+
+# Use multiple processes to speed up Pylint. Specifying 0 will auto-detect the number of processors available to use.
+jobs=0
+
+# Control the amount of potential inferred values when inferring a single object.
+limit-inference-results=100
+
+# List of plugins (as comma separated).
+load-plugins=
+
+# Pickle collected data for later comparisons.
+persistent=yes
+
+# Minimum Python version to target.
+py-version=3.10
+
+[MESSAGES CONTROL]
+disable=
+    # Code style (handled by ruff/Black)
+    line-too-long,
+    missing-docstring,
+    invalid-name,
+    too-few-public-methods,
+    # Qt framework conventions - these methods must use camelCase
+    no-member,
+    protected-access,
+    # Test-specific patterns
+    unused-argument,
+    redefined-outer-name,
+    # Common for this codebase
+    import-outside-toplevel,
+
+[FORMAT]
+expected-line-ending-size=88
+max-line-length=88
+
+[DESIGN]
+# Maximum number of arguments for function / method
+max-args=6
+max-attributes=7
+max-bool-expr=5
+max-branches=12
+max-locals=15
+max-parents=7
+max-public-methods=20
+max-returns=6
+max-statements=50
+min-public-methods=2
+
+[SIMILARITIES]
+ignore-comments=yes
+ignore-docstrings=yes
+min-similarity-lines=5
+
+[LOGGING]
+logging-format-style=new
+logging-modules=logging
+
+[VARIABLES]
+callbacks=cb_,_cb
+
+[CLASSES]
+defining-attr-methods=__init__,__new__,setUp,__post_init__
+
+[IMPORTS]
+allow-wildcard-with-all=False
+
+[EXCEPTIONS]
+overgeneral-exceptions=Exception

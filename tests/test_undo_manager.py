@@ -1,9 +1,10 @@
 """Test the undo manager functionality with list-based undo."""
 
 import datetime as dt
+
+from app.services import EnhancedCreatedEvent
 from app.undo_manager import UndoManager
 from app.validation import UndoBatch
-from app.services import EnhancedCreatedEvent
 
 
 def test_undo_manager_list_functionality():
@@ -134,8 +135,6 @@ def test_undo_manager_most_recent_batch():
 
 def test_undo_batch_serialization_roundtrip():
     """Test that UndoBatch can be serialized and deserialized correctly."""
-    import tempfile
-    import os
 
     # Create a batch with events
     events = [
@@ -188,7 +187,7 @@ def test_undo_batch_serialization_roundtrip():
     assert len(deserialized_batch.events) == len(original_batch.events)
 
     # Verify events
-    for orig_event, deser_event in zip(events, deserialized_batch.events):
+    for orig_event, deser_event in zip(events, deserialized_batch.events, strict=False):
         assert deser_event.event_id == orig_event.event_id
         assert deser_event.calendar_id == orig_event.calendar_id
         assert deser_event.event_name == orig_event.event_name
@@ -197,8 +196,8 @@ def test_undo_batch_serialization_roundtrip():
 
 def test_undo_manager_persistence():
     """Test that undo history can be saved and loaded."""
-    import tempfile
     import os
+    import tempfile
 
     undo_manager = UndoManager()
 
@@ -257,10 +256,10 @@ def test_undo_manager_persistence():
 
 def test_undo_manager_persistence_partial_load():
     """Test that load handles missing or corrupted files gracefully."""
-    import tempfile
     import os
+    import tempfile
 
-    undo_manager = UndoManager()
+    UndoManager()
 
     # Test loading from non-existent directory
     new_manager = UndoManager()
@@ -282,9 +281,9 @@ def test_undo_manager_persistence_partial_load():
 
 def test_undo_manager_auto_save_with_backup():
     """Test that save_history creates a backup and saves successfully."""
-    import tempfile
-    import os
     import json
+    import os
+    import tempfile
 
     undo_manager = UndoManager()
 
@@ -311,7 +310,7 @@ def test_undo_manager_auto_save_with_backup():
         assert os.path.exists(history_file), "History file should be created"
 
         # Read the saved data
-        with open(history_file, "r") as f:
+        with open(history_file) as f:
             saved_data = json.load(f)
         assert len(saved_data["batches"]) == 1
 
@@ -335,15 +334,14 @@ def test_undo_manager_auto_save_with_backup():
         assert os.path.exists(backup_file), "Backup file should be created"
 
         # Verify backup contains the first save (1 batch)
-        with open(backup_file, "r") as f:
+        with open(backup_file) as f:
             backup_data = json.load(f)
         assert len(backup_data["batches"]) == 1
 
         # Verify main file contains both batches
-        with open(history_file, "r") as f:
+        with open(history_file) as f:
             current_data = json.load(f)
         assert len(current_data["batches"]) == 2
-
 
 
 def test_selective_batch_undo():
