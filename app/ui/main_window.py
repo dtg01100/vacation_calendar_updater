@@ -50,6 +50,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.undo_manager.save_failed.connect(self._on_save_failed)
 
         self.setWindowTitle("Vacation Calendar Updater")
+        # Set window icon for task manager/dock
+        icon_path = "/app/share/icons/hicolor/512x512/apps/com.github.dtg01100.vacation_calendar_updater.png"
+        if Path(icon_path).exists():
+            self.setWindowIcon(QtGui.QIcon(icon_path))
+        else:
+            self.setWindowIcon(QtGui.QIcon.fromTheme("appointment-new"))
         self._init_services()
         self.settings = self.config_manager.ensure_defaults(
             default_email=self.user_email,
