@@ -1,4 +1,4 @@
-# Only direct dependencies - PySide6 provided by BaseApp
+# Only direct dependencies - PySide6 provided by KDE runtime
 # Transitive dependencies will be resolved automatically by flatpak-pip-generator
 google-api-python-client>=2.100.0
 oauth2client>=4.1.3
