@@ -8,6 +8,20 @@ from pathlib import Path
 from PySide6 import QtCore
 
 SETTINGS_SECTION = "settings"
+
+
+def get_config_directory() -> Path:
+    """Get platform-appropriate config directory using Qt's standard paths.
+    
+    Returns:
+        Path: The configuration directory for the application.
+    """
+    config_dir = QtCore.QStandardPaths.writableLocation(
+        QtCore.QStandardPaths.ConfigLocation
+    )
+    return Path(config_dir)
+
+
 WEEKDAY_KEYS = (
     "monday",
     "tuesday",

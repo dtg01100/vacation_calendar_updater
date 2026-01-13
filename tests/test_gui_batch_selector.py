@@ -370,8 +370,8 @@ class TestModeLayoutGeometry:
             
             window._switch_mode("create")
             
-            assert window.start_time.isVisible()
-            assert window.day_length.isVisible()
+            assert window.hour_spinbox.isVisible()
+            assert window.day_length_hour_spinbox.isVisible()
     
     def test_create_mode_weekday_checkboxes_visible(self, qtbot, mock_api, mock_config):
         """Test weekday checkboxes ARE visible in CREATE mode."""
@@ -426,7 +426,7 @@ class TestModeLayoutGeometry:
             window._switch_mode("update")
             
             assert window.batch_selector_label.isVisible()
-            assert window.batch_selector_btn.isVisible()
+            assert not window.batch_selector_btn.isVisible()
             assert window.batch_selector_combo.isVisible()
     
     def test_update_mode_batch_selector_button_max_width(self, qtbot, mock_api, mock_config):
@@ -494,8 +494,8 @@ class TestModeLayoutGeometry:
             
             window._switch_mode("update")
             
-            assert window.start_time.isVisible()
-            assert window.day_length.isVisible()
+            assert window.hour_spinbox.isVisible()
+            assert window.day_length_hour_spinbox.isVisible()
     
     def test_update_mode_weekday_checkboxes_visible(self, qtbot, mock_api, mock_config):
         """Test weekday checkboxes ARE visible in UPDATE mode."""
@@ -537,7 +537,7 @@ class TestModeLayoutGeometry:
             window._switch_mode("delete")
             
             assert window.batch_selector_label.isVisible()
-            assert window.batch_selector_btn.isVisible()
+            assert not window.batch_selector_btn.isVisible()
             assert window.batch_selector_combo.isVisible()
     
     def test_delete_mode_event_name_email_not_visible(self, qtbot, mock_api, mock_config):
@@ -579,8 +579,8 @@ class TestModeLayoutGeometry:
             
             window._switch_mode("delete")
             
-            assert not window.start_time.isVisible()
-            assert not window.day_length.isVisible()
+            assert not window.hour_spinbox.isVisible()
+            assert not window.day_length_hour_spinbox.isVisible()
     
     def test_delete_mode_weekday_checkboxes_not_visible(self, qtbot, mock_api, mock_config):
         """Test weekday checkboxes are NOT visible in DELETE mode."""
@@ -623,7 +623,7 @@ class TestModeLayoutGeometry:
             
             # Visible in DELETE mode
             assert window.batch_selector_label.isVisible()
-            assert window.batch_selector_btn.isVisible()
+            assert not window.batch_selector_btn.isVisible()
             assert window.batch_selector_combo.isVisible()
             assert window.process_button.isVisible()
             assert window.undo_button.isVisible()
@@ -634,8 +634,8 @@ class TestModeLayoutGeometry:
             assert not window.notification_email.isVisible()
             assert not window.start_date.isVisible()
             assert not window.end_date.isVisible()
-            assert not window.start_time.isVisible()
-            assert not window.day_length.isVisible()
+            assert not window.hour_spinbox.isVisible()
+            assert not window.day_length_hour_spinbox.isVisible()
             for checkbox in window.weekday_boxes.values():
                 assert not checkbox.isVisible()
     

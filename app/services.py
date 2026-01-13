@@ -152,13 +152,10 @@ class GoogleApi:
         if self._credentials:
             return self._credentials
 
-        # Use Qt's standard paths for cross-platform config directory
-        from PySide6 import QtCore
+        # Use config directory utility for cross-platform support
+        from .config import get_config_directory
 
-        config_dir = QtCore.QStandardPaths.writableLocation(
-            QtCore.QStandardPaths.ConfigLocation
-        )
-        credential_dir = Path(config_dir) / "credentials"
+        credential_dir = get_config_directory() / "credentials"
         credential_dir.mkdir(parents=True, exist_ok=True)
         credential_path = credential_dir / self.credential_name
 
