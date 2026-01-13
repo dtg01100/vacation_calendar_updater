@@ -10,26 +10,36 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Signal
 
 from .services import EnhancedCreatedEvent
-from .validation import UndoBatch
+from .validation import UndoBatch, UndoOperation
 
 
 class UndoManager(QObject):
-    """Manages undo history for calendar events with multi-level undo support."""
+    """Manages undo/redo history with dual-stack architecture."""
 
-    # Signals
+    # Existing signals (kept for backwards compatibility)
     history_changed = Signal()
-    batch_undone = Signal(str)  # batch_id
-    events_undone = Signal(str, list)  # batch_id, event_ids
+    batch_undone = Signal(str)  # batch_id (deprecated)
+    events_undone = Signal(str, list)  # batch_id, event_ids (deprecated)
     save_failed = Signal(str)  # error_message
+
+    # New signals for operation-based undo/redo
+    operation_created = Signal(str)  # operation_id
+    operation_undone = Signal(str)  # operation_id
+    operation_redone = Signal(str)  # operation_id
+    redo_stack_cleared = Signal()  # no parameters
 
     def __init__(self, max_history: int = 50, parent=None):
         super().__init__(parent)
+        # New dual-stack model
+        self.undo_stack: list[UndoOperation] = []
+        self.redo_stack: list[UndoOperation] = []
+        # Legacy field for backwards compatibility
         self.undo_history: list[UndoBatch] = []
         self.max_history = max_history
         self.persistence_file = "undo_history.json"
 
     def save_history(self, directory: str | None = None) -> None:
-        """Save undo history to a JSON file.
+        """Save undo history to a JSON file (v2 schema with dual stacks + v1 backwards compat).
 
         Args:
             directory: Directory to save the file in (defaults to current directory)
@@ -49,9 +59,13 @@ class UndoManager(QObject):
                 # Continue even if backup fails - better to save without backup
                 shutil.copy(file_path, backup_path)
 
+        # Save v2 format (preferred), but include v1 batches for backwards compat
         data = {
-            "version": 1,
+            "version": 2,
             "max_history": self.max_history,
+            "undo_stack": [operation.to_dict() for operation in self.undo_stack],
+            "redo_stack": [operation.to_dict() for operation in self.redo_stack],
+            # Also save v1 batches for backwards compatibility
             "batches": [batch.to_dict() for batch in self.undo_history],
         }
 
@@ -64,13 +78,13 @@ class UndoManager(QObject):
             self.save_failed.emit(error_msg)
 
     def load_history(self, directory: str | None = None) -> int:
-        """Load undo history from a JSON file.
+        """Load undo history from a JSON file (supports v1 and v2 schemas).
 
         Args:
             directory: Directory to load the file from (defaults to current directory)
 
         Returns:
-            Number of batches loaded
+            Number of operations loaded
         """
         if directory:
             file_path = Path(directory) / self.persistence_file
@@ -84,37 +98,172 @@ class UndoManager(QObject):
             with open(file_path) as f:
                 data = json.load(f)
 
-            # Handle version migration if needed in the future
-            _ = data.get("version", 1)  # Reserved for future migrations
+            version = data.get("version", 1)
 
-            # Clear existing history
+            # Clear existing stacks
+            self.undo_stack.clear()
+            self.redo_stack.clear()
             self.undo_history.clear()
 
-            # Load batches
-            batches_data = data.get("batches", [])
-            for batch_data in batches_data:
-                try:
-                    batch = UndoBatch.from_dict(batch_data)
-                    self.undo_history.append(batch)
-                except (KeyError, ValueError):
-                    continue
+            if version == 1:
+                # Migrate v1 to v2
+                self._migrate_v1_to_v2(data)
+            elif version == 2:
+                # Load v2 format directly
+                for op_data in data.get("undo_stack", []):
+                    try:
+                        operation = UndoOperation.from_dict(op_data)
+                        self.undo_stack.append(operation)
+                    except (KeyError, ValueError):
+                        continue
+
+                for op_data in data.get("redo_stack", []):
+                    try:
+                        operation = UndoOperation.from_dict(op_data)
+                        self.redo_stack.append(operation)
+                    except (KeyError, ValueError):
+                        continue
+                
+                # Also load legacy v1 batches if present (for backwards compat)
+                for batch_data in data.get("batches", []):
+                    try:
+                        batch = UndoBatch.from_dict(batch_data)
+                        self.undo_history.append(batch)
+                    except (KeyError, ValueError):
+                        continue
+            else:
+                # Unknown version - return 0 (no history loaded)
+                return 0
 
             # Restore max_history setting
             if "max_history" in data:
                 self.max_history = data["max_history"]
 
             # Trim history if needed
-            if len(self.undo_history) > self.max_history:
-                self.undo_history = self.undo_history[: self.max_history]
+            if len(self.undo_stack) > self.max_history:
+                self.undo_stack = self.undo_stack[-self.max_history :]
 
             self.history_changed.emit()
-            return len(self.undo_history)
+            # Return count from both undo_stack and legacy undo_history
+            return len(self.undo_stack) + len(self.redo_stack) + len(self.undo_history)
 
         except (OSError, json.JSONDecodeError):
             return 0
 
+    def _migrate_v1_to_v2(self, v1_data: dict) -> None:
+        """Migrate v1 batch format to v2 operation format.
+
+        Args:
+            v1_data: v1 schema data dict
+        """
+        for batch_data in v1_data.get("batches", []):
+            try:
+                batch = UndoBatch.from_dict(batch_data)
+                # Convert batch to operation
+                operation = UndoOperation(
+                    operation_id=batch.batch_id,
+                    operation_type="create",  # v1 batches assumed to be creates
+                    affected_event_ids=[e.event_id for e in batch.events],
+                    event_snapshots=batch.events,
+                    created_at=batch.created_at,
+                    description=batch.description,
+                )
+
+                # Undone batches go to redo stack, others to undo stack
+                if batch.is_undone:
+                    self.redo_stack.insert(0, operation)
+                else:
+                    self.undo_stack.append(operation)
+            except (KeyError, ValueError):
+                continue
+
+
+    def undo(self) -> UndoOperation | None:
+        """Undo the most recent operation.
+
+        Returns:
+            The operation that was undone, or None if undo stack is empty
+        """
+        if not self.undo_stack:
+            return None
+
+        operation = self.undo_stack.pop()
+        self.redo_stack.append(operation)
+        self.operation_undone.emit(operation.operation_id)
+        self.history_changed.emit()
+        return operation
+
+    def redo(self) -> UndoOperation | None:
+        """Redo the most recently undone operation.
+
+        Returns:
+            The operation that was redone, or None if redo stack is empty
+        """
+        if not self.redo_stack:
+            return None
+
+        operation = self.redo_stack.pop()
+        self.undo_stack.append(operation)
+        self.operation_redone.emit(operation.operation_id)
+        self.history_changed.emit()
+        return operation
+
+    def add_operation(
+        self,
+        operation_type: str,
+        affected_event_ids: list[str],
+        event_snapshots: list[EnhancedCreatedEvent],
+        description: str,
+    ) -> str:
+        """Add a new operation to the undo stack.
+
+        Args:
+            operation_type: Type of operation ("create", "update", or "delete")
+            affected_event_ids: List of event IDs affected by this operation
+            event_snapshots: Complete event snapshots for redo capability
+            description: Human-readable description of the operation
+
+        Returns:
+            operation_id: The ID of the created operation
+
+        Raises:
+            ValueError: If operation_type is invalid or lists are empty
+        """
+        if operation_type not in ("create", "update", "delete"):
+            raise ValueError(f"Invalid operation_type: {operation_type}")
+        if not affected_event_ids:
+            raise ValueError("affected_event_ids cannot be empty")
+        if not event_snapshots:
+            raise ValueError("event_snapshots cannot be empty")
+
+        operation_id = uuid.uuid4().hex
+        operation = UndoOperation(
+            operation_id=operation_id,
+            operation_type=operation_type,
+            affected_event_ids=affected_event_ids,
+            event_snapshots=event_snapshots,
+            created_at=dt.datetime.now(),
+            description=description,
+        )
+
+        self.undo_stack.append(operation)
+
+        # Clear redo stack on new operation (standard UX)
+        if self.redo_stack:
+            self.redo_stack.clear()
+            self.redo_stack_cleared.emit()
+
+        # Trim history if needed
+        if len(self.undo_stack) > self.max_history:
+            self.undo_stack = self.undo_stack[-self.max_history :]
+
+        self.operation_created.emit(operation_id)
+        self.history_changed.emit()
+
+        return operation_id
+
     def add_batch(self, events: list[EnhancedCreatedEvent], description: str) -> str:
-        """Add a new batch of events to the undo history.
+        """Add a new batch of events to the undo history (backwards compatibility).
 
         Args:
             events: List of created events
@@ -213,12 +362,57 @@ class UndoManager(QObject):
         return events_to_undo
 
     def get_undoable_batches(self) -> list[UndoBatch]:
-        """Get all batches that can be undone (not already undone)."""
-        return [batch for batch in self.undo_history if not batch.is_undone]
+        """Get all undoable batches (backwards compatibility).
+
+        Returns operations from undo_stack first, then legacy undo_history batches.
+        This supports both new operation-based code and old batch-based code.
+        """
+        batches = []
+        
+        # First, convert operations from undo_stack
+        for operation in self.undo_stack:
+            batch = UndoBatch(
+                batch_id=operation.operation_id,
+                created_at=operation.created_at,
+                events=operation.event_snapshots,
+                description=operation.description,
+                is_undone=False,
+            )
+            batches.append(batch)
+        
+        # Then, add legacy batches from undo_history that aren't undone
+        # (only if undo_stack is empty to avoid duplication)
+        if not self.undo_stack:
+            for batch in self.undo_history:
+                if not batch.is_undone:
+                    batches.append(batch)
+        
+        return batches
 
     def get_recent_batches(self, limit: int = 5) -> list[UndoBatch]:
-        """Get the most recent batches (both undone and not undone)."""
-        return self.undo_history[:limit]
+        """Get the most recent batches (backwards compatibility).
+        
+        Returns recent operations from undo_stack first, then legacy undo_history.
+        """
+        batches = []
+        
+        # First, convert operations from undo_stack
+        for operation in self.undo_stack[-limit:]:
+            batch = UndoBatch(
+                batch_id=operation.operation_id,
+                created_at=operation.created_at,
+                events=operation.event_snapshots,
+                description=operation.description,
+                is_undone=False,
+            )
+            batches.append(batch)
+        
+        # If we don't have enough from undo_stack, add from undo_history
+        if len(batches) < limit and not self.undo_stack:
+            for batch in self.undo_history[:limit]:
+                batches.append(batch)
+        
+        return batches
 
     def get_batch_by_id(self, batch_id: str) -> UndoBatch | None:
         """Get a specific batch by ID."""

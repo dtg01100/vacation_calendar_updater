@@ -60,6 +60,73 @@ class ScheduleRequest:
 
 
 @dataclass
+class UndoOperation:
+    """Represents a single undoable operation (create, update, or delete)."""
+
+    operation_id: str
+    operation_type: str  # "create", "update", or "delete"
+    affected_event_ids: list[str]
+    event_snapshots: list[EnhancedCreatedEvent]  # type: ignore[name-defined]
+    created_at: dt.datetime
+    description: str
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for serialization"""
+        return {
+            "operation_id": self.operation_id,
+            "operation_type": self.operation_type,
+            "affected_event_ids": self.affected_event_ids,
+            "event_snapshots": [
+                self._event_to_dict(event) for event in self.event_snapshots
+            ],
+            "created_at": self.created_at.isoformat(),
+            "description": self.description,
+        }
+
+    @staticmethod
+    def _event_to_dict(event) -> dict:
+        """Convert EnhancedCreatedEvent to dictionary"""
+        return {
+            "event_id": event.event_id,
+            "calendar_id": event.calendar_id,
+            "event_name": event.event_name,
+            "start_time": event.start_time.isoformat(),
+            "end_time": event.end_time.isoformat(),
+            "created_at": event.created_at.isoformat(),
+            "batch_id": event.batch_id,
+            "request_snapshot": event.request_snapshot,
+        }
+
+    @staticmethod
+    def from_dict(data: dict) -> UndoOperation:
+        """Reconstruct UndoOperation from dictionary."""
+        from .services import EnhancedCreatedEvent
+
+        events = []
+        for event_data in data.get("event_snapshots", []):
+            event = EnhancedCreatedEvent(
+                event_id=event_data["event_id"],
+                calendar_id=event_data["calendar_id"],
+                event_name=event_data["event_name"],
+                start_time=parse_datetime(event_data["start_time"]),
+                end_time=parse_datetime(event_data["end_time"]),
+                created_at=parse_datetime(event_data["created_at"]),
+                batch_id=event_data["batch_id"],
+                request_snapshot=event_data.get("request_snapshot", {}),
+            )
+            events.append(event)
+
+        return UndoOperation(
+            operation_id=data["operation_id"],
+            operation_type=data["operation_type"],
+            affected_event_ids=data["affected_event_ids"],
+            event_snapshots=events,
+            created_at=parse_datetime(data["created_at"]),
+            description=data["description"],
+        )
+
+
+@dataclass
 class UndoBatch:
     batch_id: str
     created_at: dt.datetime

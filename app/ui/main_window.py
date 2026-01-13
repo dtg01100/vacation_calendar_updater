@@ -15,7 +15,7 @@ from ..validation import (
     parse_time,
     validate_request,
 )
-from ..workers import EventCreationWorker, StartupWorker, UndoWorker
+from ..workers import EventCreationWorker, StartupWorker, UndoWorker, DeleteWorker, UpdateWorker
 from .datepicker import DatePicker
 
 
@@ -33,8 +33,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.created_events: list[EnhancedCreatedEvent] = []
         self.creation_thread: QtCore.QThread | None = None
         self.undo_thread: QtCore.QThread | None = None
+        self.delete_thread: QtCore.QThread | None = None
+        self.update_thread: QtCore.QThread | None = None
         self.creation_worker: EventCreationWorker | None = None
         self.undo_worker: UndoWorker | None = None
+        self.delete_worker: DeleteWorker | None = None
+        self.update_worker: UpdateWorker | None = None
+        
+        # Mode state: 'create', 'update', or 'delete'
+        self.current_mode = "create"
+        self.selected_batch_for_operation: str | None = None  # batch_id for update/delete
 
         # Use Qt standard paths for platform-appropriate app data directory
         self._app_data_dir = Path(
@@ -158,40 +166,77 @@ class MainWindow(QtWidgets.QMainWindow):
         layout = QtWidgets.QGridLayout()
         central.setLayout(layout)
 
-        # Row 0
-        layout.addWidget(QtWidgets.QLabel("Event Name"), 0, 0)
+        # Row -1: Mode selector buttons at the very top
+        mode_frame = QtWidgets.QFrame()
+        mode_layout = QtWidgets.QHBoxLayout()
+        mode_layout.setContentsMargins(0, 0, 0, 0)
+        mode_frame.setLayout(mode_layout)
+        
+        self.mode_create_btn = QtWidgets.QPushButton("Create")
+        self.mode_create_btn.setCheckable(True)
+        self.mode_create_btn.setChecked(True)
+        self.mode_create_btn.clicked.connect(lambda: self._switch_mode("create"))
+        mode_layout.addWidget(self.mode_create_btn)
+        
+        self.mode_update_btn = QtWidgets.QPushButton("Update")
+        self.mode_update_btn.setCheckable(True)
+        self.mode_update_btn.clicked.connect(lambda: self._switch_mode("update"))
+        mode_layout.addWidget(self.mode_update_btn)
+        
+        self.mode_delete_btn = QtWidgets.QPushButton("Delete")
+        self.mode_delete_btn.setCheckable(True)
+        self.mode_delete_btn.clicked.connect(lambda: self._switch_mode("delete"))
+        mode_layout.addWidget(self.mode_delete_btn)
+        
+        mode_layout.addStretch()
+        layout.addWidget(mode_frame, 0, 0, 1, 4)
+
+        # Row 1: Batch selector (for update/delete modes)
+        self.batch_selector_label = QtWidgets.QLabel("Select Batch:")
+        self.batch_selector_label.setVisible(False)
+        layout.addWidget(self.batch_selector_label, 1, 0)
+        
+        self.batch_selector_combo = QtWidgets.QComboBox()
+        self.batch_selector_combo.setMinimumWidth(200)
+        self.batch_selector_combo.setPlaceholderText("Pick a batch to modify...")
+        self.batch_selector_combo.currentIndexChanged.connect(self._on_batch_selected)
+        self.batch_selector_combo.setVisible(False)
+        layout.addWidget(self.batch_selector_combo, 1, 1)
+
+        # Row 2
+        layout.addWidget(QtWidgets.QLabel("Event Name"), 2, 0)
         self.event_name = QtWidgets.QLineEdit()
-        layout.addWidget(self.event_name, 0, 1)
+        layout.addWidget(self.event_name, 2, 1)
 
-        layout.addWidget(QtWidgets.QLabel("Notification Email"), 0, 2)
+        layout.addWidget(QtWidgets.QLabel("Notification Email"), 2, 2)
         self.notification_email = QtWidgets.QLineEdit()
-        layout.addWidget(self.notification_email, 0, 3)
+        layout.addWidget(self.notification_email, 2, 3)
 
-        # Row 1
-        layout.addWidget(QtWidgets.QLabel("Start Date"), 1, 0)
+        # Row 3
+        layout.addWidget(QtWidgets.QLabel("Start Date"), 3, 0)
         self.start_date = DatePicker()
-        layout.addWidget(self.start_date, 1, 1)
+        layout.addWidget(self.start_date, 3, 1)
 
-        layout.addWidget(QtWidgets.QLabel("Start Time"), 1, 2)
+        layout.addWidget(QtWidgets.QLabel("Start Time"), 3, 2)
         self.start_time = QtWidgets.QTimeEdit()
         self.start_time.setDisplayFormat("HH:mm")
         self.start_time.setMinimumWidth(90)
         self._build_time_picker(layout)
 
-        # Row 2
-        layout.addWidget(QtWidgets.QLabel("End Date"), 2, 0)
+        # Row 4
+        layout.addWidget(QtWidgets.QLabel("End Date"), 4, 0)
         self.end_date = DatePicker()
-        layout.addWidget(self.end_date, 2, 1)
+        layout.addWidget(self.end_date, 4, 1)
 
-        layout.addWidget(QtWidgets.QLabel("Day Length"), 2, 2)
+        layout.addWidget(QtWidgets.QLabel("Day Length"), 4, 2)
         self.day_length = QtWidgets.QTimeEdit()
         self.day_length.setDisplayFormat("HH:mm")
         self.day_length.setMaximumWidth(90)
         self.day_length.setTime(QtCore.QTime(8, 0))
         self.day_length.setToolTip("Length of each day (HH:mm)")
-        layout.addWidget(self.day_length, 2, 3)
+        layout.addWidget(self.day_length, 4, 3)
 
-        # Row 3 Weekdays
+        # Row 5 Weekdays
         self.weekday_boxes: dict[str, QtWidgets.QCheckBox] = {}
         weekday_frame = QtWidgets.QFrame()
         weekday_layout = QtWidgets.QHBoxLayout()
@@ -208,45 +253,45 @@ class MainWindow(QtWidgets.QMainWindow):
             box = QtWidgets.QCheckBox(label)
             self.weekday_boxes[key] = box
             weekday_layout.addWidget(box)
-        layout.addWidget(weekday_frame, 3, 0, 1, 2)
+        layout.addWidget(weekday_frame, 5, 0, 1, 2)
 
         self.days_label = QtWidgets.QLabel("check settings")
-        layout.addWidget(self.days_label, 3, 2, 1, 2)
+        layout.addWidget(self.days_label, 5, 2, 1, 2)
 
-        # Row 4 calendar select + buttons
+        # Row 6 calendar select + buttons
         self.process_button = QtWidgets.QPushButton("Insert Into Calendar")
         self.process_button.clicked.connect(self._process)
-        layout.addWidget(self.process_button, 4, 0, 1, 2)
+        layout.addWidget(self.process_button, 6, 0, 1, 2)
 
         # Validation status label - shows why button is disabled (moved below undo widgets to avoid overlap)
         self.validation_status = QtWidgets.QLabel("")
         self.validation_status.setStyleSheet("color: #d32f2f; font-size: 11px;")
         self.validation_status.setWordWrap(True)
-        layout.addWidget(self.validation_status, 5, 0, 1, 4)
+        layout.addWidget(self.validation_status, 7, 0, 1, 4)
 
         # Create undo combo box for selective undo
         self.undo_combo = QtWidgets.QComboBox()
         self.undo_combo.setMinimumWidth(200)
         self.undo_combo.setPlaceholderText("Select action to undo...")
         self.undo_combo.currentIndexChanged.connect(self._update_undo_button_state)
-        layout.addWidget(self.undo_combo, 4, 2, 1, 1)
+        layout.addWidget(self.undo_combo, 6, 2, 1, 1)
 
         self.undo_button = QtWidgets.QPushButton("Undo Selected")
         self.undo_button.clicked.connect(self._undo)
         self.undo_button.setEnabled(False)
-        layout.addWidget(self.undo_button, 4, 3, 1, 1)
+        layout.addWidget(self.undo_button, 6, 3, 1, 1)
 
         self.send_email_checkbox = QtWidgets.QCheckBox("Send notification email")
-        layout.addWidget(self.send_email_checkbox, 6, 0, 1, 2)
+        layout.addWidget(self.send_email_checkbox, 8, 0, 1, 2)
 
         self.calendar_combo = QtWidgets.QComboBox()
         self.calendar_combo.addItems(self.calendar_names)
-        layout.addWidget(self.calendar_combo, 6, 2, 1, 2)
+        layout.addWidget(self.calendar_combo, 8, 2, 1, 2)
 
         # Log area
         self.log_box = QtWidgets.QPlainTextEdit()
         self.log_box.setReadOnly(True)
-        layout.addWidget(self.log_box, 7, 0, 1, 4)
+        layout.addWidget(self.log_box, 9, 0, 1, 4)
 
         self.setCentralWidget(central)
 
@@ -410,6 +455,16 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
     def _update_validation(self) -> None:
+        # Validation logic differs by mode
+        if self.current_mode == "create":
+            self._update_validation_create()
+        elif self.current_mode == "update":
+            self._update_validation_update()
+        elif self.current_mode == "delete":
+            self._update_validation_delete()
+
+    def _update_validation_create(self) -> None:
+        """Validate create mode inputs."""
         request = self._collect_request()
         validation_errors: list[str] = []
         if request:
@@ -430,6 +485,65 @@ class MainWindow(QtWidgets.QMainWindow):
             self.days_label.setText(f"{days} days ({hours:.2f} hours)")
         else:
             self.days_label.setText("check settings")
+
+        self.process_button.setEnabled(
+            len(validation_errors) == 0 and not self._creation_running()
+        )
+        self.undo_button.setEnabled(
+            self.undo_manager.can_undo()
+            and not self._creation_running()
+            and not self._undo_running()
+        )
+
+    def _update_validation_update(self) -> None:
+        """Validate update mode inputs."""
+        request = self._collect_request()
+        validation_errors: list[str] = []
+        if request:
+            validation_errors = validate_request(request)
+        else:
+            validation_errors = ["Complete required fields"]
+        
+        if not self.selected_batch_for_operation:
+            validation_errors.append("Select a batch to update")
+
+        # Update validation status label with error messages
+        if validation_errors:
+            self.validation_status.setText(" | ".join(validation_errors))
+        else:
+            self.validation_status.setText("")
+
+        if not validation_errors and request:
+            schedule = build_schedule(request)
+            days = len(schedule)
+            hours = days * request.day_length_hours
+            self.days_label.setText(f"{days} days ({hours:.2f} hours)")
+        else:
+            self.days_label.setText("check settings")
+
+        self.process_button.setEnabled(
+            len(validation_errors) == 0 and not self._creation_running()
+        )
+        self.undo_button.setEnabled(
+            self.undo_manager.can_undo()
+            and not self._creation_running()
+            and not self._undo_running()
+        )
+
+    def _update_validation_delete(self) -> None:
+        """Validate delete mode inputs."""
+        validation_errors: list[str] = []
+        
+        if not self.selected_batch_for_operation:
+            validation_errors.append("Select a batch to delete")
+
+        # Update validation status label with error messages
+        if validation_errors:
+            self.validation_status.setText(" | ".join(validation_errors))
+        else:
+            self.validation_status.setText("")
+
+        self.days_label.setText("check settings")
 
         self.process_button.setEnabled(
             len(validation_errors) == 0 and not self._creation_running()
@@ -467,6 +581,88 @@ class MainWindow(QtWidgets.QMainWindow):
         self.config_manager.save(settings)
 
     def _process(self) -> None:
+        """Route to the appropriate handler based on current mode."""
+        if self.current_mode == "create":
+            self._process_create()
+        elif self.current_mode == "update":
+            self._process_update()
+        elif self.current_mode == "delete":
+            self._process_delete()
+
+    def _switch_mode(self, mode: str) -> None:
+        """Switch the active mode and update UI accordingly."""
+        self.current_mode = mode
+        
+        # Update button states
+        self.mode_create_btn.setChecked(mode == "create")
+        self.mode_update_btn.setChecked(mode == "update")
+        self.mode_delete_btn.setChecked(mode == "delete")
+        
+        # Update process button label
+        if mode == "create":
+            self.process_button.setText("Insert Into Calendar")
+            self.batch_selector_label.setVisible(False)
+            self.batch_selector_combo.setVisible(False)
+            # Show all form fields
+            self._set_form_fields_visible(True, True, True)
+        elif mode == "update":
+            self.process_button.setText("Update Events")
+            self.batch_selector_label.setVisible(True)
+            self.batch_selector_combo.setVisible(True)
+            # Show all form fields
+            self._set_form_fields_visible(True, True, True)
+            self._update_batch_selector()
+        elif mode == "delete":
+            self.process_button.setText("Delete Events")
+            self.batch_selector_label.setVisible(True)
+            self.batch_selector_combo.setVisible(True)
+            # Hide most form fields for delete mode, just show batch selector
+            self._set_form_fields_visible(False, False, False)
+            self._update_batch_selector()
+        
+        self._update_validation()
+
+    def _set_form_fields_visible(self, show_name_email: bool, show_dates: bool, show_schedule: bool) -> None:
+        """Show/hide form fields based on mode requirements."""
+        # Event name and email
+        for widget in [self.event_name, self.notification_email]:
+            if hasattr(self, 'event_name'):
+                self.event_name.setVisible(show_name_email)
+                self.notification_email.setVisible(show_name_email)
+        
+        # Dates
+        for widget in [self.start_date, self.end_date]:
+            widget.setVisible(show_dates)
+        
+        # Schedule info (times, weekdays, day length)
+        self.start_time.setVisible(show_schedule)
+        self.day_length.setVisible(show_schedule)
+        for box in self.weekday_boxes.values():
+            box.setVisible(show_schedule)
+        self.days_label.setVisible(show_schedule)
+
+    def _update_batch_selector(self) -> None:
+        """Populate the batch selector combo with available batches."""
+        self.batch_selector_combo.blockSignals(True)
+        self.batch_selector_combo.clear()
+        
+        batches = self.undo_manager.get_undoable_batches()
+        for batch in batches:
+            self.batch_selector_combo.addItem(batch.description, batch.batch_id)
+        
+        self.batch_selector_combo.blockSignals(False)
+        self._on_batch_selected()
+
+    def _on_batch_selected(self) -> None:
+        """Handle batch selection for update/delete modes."""
+        if self.batch_selector_combo.currentIndex() >= 0:
+            self.selected_batch_for_operation = self.batch_selector_combo.currentData()
+            self._update_validation()
+        else:
+            self.selected_batch_for_operation = None
+            self._update_validation()
+
+    def _process_create(self) -> None:
         if self._creation_running():
             if self.creation_worker:
                 self.creation_worker.stop()
@@ -516,6 +712,105 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.creation_thread.start()
 
+    def _process_update(self) -> None:
+        """Update events in a selected batch."""
+        if not self.selected_batch_for_operation:
+            QtWidgets.QMessageBox.warning(self, "No batch selected", "Please select a batch to update.")
+            return
+        
+        batch = self.undo_manager.get_batch_by_id(self.selected_batch_for_operation)
+        if not batch:
+            QtWidgets.QMessageBox.warning(self, "Batch not found", "The selected batch could not be found.")
+            return
+        
+        request = self._collect_request()
+        if not request:
+            QtWidgets.QMessageBox.warning(
+                self, "Invalid input", "Please correct the highlighted errors."
+            )
+            return
+        errors_list = validate_request(request)
+        if errors_list:
+            QtWidgets.QMessageBox.warning(self, "Invalid input", "\n".join(errors_list))
+            return
+        calendar_id = self.calendar_id_by_name.get(request.calendar_name)
+        if not calendar_id:
+            QtWidgets.QMessageBox.critical(
+                self, "Calendar missing", "Selected calendar ID could not be found."
+            )
+            return
+        
+        self.update_thread = QtCore.QThread()
+        self.update_worker = UpdateWorker(
+            self.api,
+            calendar_id,
+            batch.events,
+            request,
+            send_email=self.send_email_checkbox.isChecked(),
+            notification_email=self.notification_email.text(),
+        )
+        self.update_worker.moveToThread(self.update_thread)
+        self.update_thread.started.connect(self.update_worker.run)
+        self.update_worker.progress.connect(self._on_update_progress)
+        self.update_worker.error.connect(self._on_update_error)
+        self.update_worker.finished.connect(self._on_update_finished)
+        self.update_worker.finished.connect(self.update_thread.quit)
+        self.update_thread.finished.connect(self.update_thread.deleteLater)
+
+        self.process_button.setEnabled(False)
+        self._toggle_inputs(False)
+        
+        # Show progress bar
+        schedule = build_schedule(request)
+        self._show_progress(len(schedule))
+
+        self.update_thread.start()
+
+    def _process_delete(self) -> None:
+        """Delete events from a selected batch."""
+        if not self.selected_batch_for_operation:
+            QtWidgets.QMessageBox.warning(self, "No batch selected", "Please select a batch to delete.")
+            return
+        
+        batch = self.undo_manager.get_batch_by_id(self.selected_batch_for_operation)
+        if not batch:
+            QtWidgets.QMessageBox.warning(self, "Batch not found", "The selected batch could not be found.")
+            return
+        
+        # Confirm deletion
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            "Confirm Deletion",
+            f"Delete {len(batch.events)} events from batch:\n{batch.description}?",
+            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No
+        )
+        if reply != QtWidgets.QMessageBox.StandardButton.Yes:
+            return
+        
+        self.delete_thread = QtCore.QThread()
+        self.delete_worker = DeleteWorker(
+            self.api,
+            batch.events,
+            send_email=self.send_email_checkbox.isChecked(),
+            notification_email=self.notification_email.text(),
+            batch_description=batch.description,
+        )
+        self.delete_worker.moveToThread(self.delete_thread)
+        self.delete_thread.started.connect(self.delete_worker.run)
+        self.delete_worker.progress.connect(self._append_log)
+        self.delete_worker.error.connect(self._on_delete_error)
+        self.delete_worker.finished.connect(self._on_delete_finished)
+        self.delete_worker.finished.connect(self.delete_thread.quit)
+        self.delete_thread.finished.connect(self.delete_thread.deleteLater)
+
+        self.process_button.setEnabled(False)
+        self._toggle_inputs(False)
+        
+        # Show progress bar
+        self._show_progress(len(batch.events))
+
+        self.delete_thread.start()
+
     def _on_creation_progress(self, message: str) -> None:
         """Handle progress updates from event creation worker."""
         # Update progress bar (approximate progress based on messages)
@@ -539,7 +834,13 @@ class MainWindow(QtWidgets.QMainWindow):
         description = (
             f"{len(events)} events: {events[0].event_name if events else 'Unknown'}"
         )
-        self.undo_manager.add_batch(events, description)
+        # NEW: Use add_operation() instead of add_batch()
+        self.undo_manager.add_operation(
+            operation_type="create",
+            affected_event_ids=[e.event_id for e in events],
+            event_snapshots=events,
+            description=description,
+        )
         # Auto-save immediately to prevent data loss on crashes
         self.undo_manager.save_history(str(self._app_data_dir))
         self._append_log(f"Done. Created {len(events)} events.")
@@ -617,6 +918,88 @@ class MainWindow(QtWidgets.QMainWindow):
         self.undo_worker = None
         self._toggle_inputs(True)
         self._update_validation()
+
+    def _on_delete_error(self, message: str) -> None:
+        self._append_log(f"Delete error: {message}")
+        QtWidgets.QMessageBox.critical(self, "Delete error", message)
+        self._stop_thread(self.delete_thread, self.delete_worker)
+        self.delete_thread = None
+        self.delete_worker = None
+        self._toggle_inputs(True)
+        self._update_validation()
+
+    def _on_delete_finished(self, deleted_event_ids: list[str], batch_description: str) -> None:
+        self._append_log(f"Deletion complete. Deleted {len(deleted_event_ids)} events.")
+        
+        # NEW: Record delete operation for redo capability
+        if self.delete_worker and hasattr(self.delete_worker, 'deleted_snapshots'):
+            deleted_snapshots = self.delete_worker.deleted_snapshots
+            self.undo_manager.add_operation(
+                operation_type="delete",
+                affected_event_ids=deleted_event_ids,
+                event_snapshots=deleted_snapshots,
+                description=f"Deleted: {batch_description}",
+            )
+            self.undo_manager.save_history(str(self._app_data_dir))
+        
+        # Also mark original batch as undone (for backwards compat)
+        if self.selected_batch_for_operation:
+            try:
+                self.undo_manager.undo_batch(self.selected_batch_for_operation)
+            except ValueError:
+                pass  # Batch already undone or not found
+        
+        self._stop_thread(self.delete_thread, self.delete_worker)
+        self.delete_thread = None
+        self.delete_worker = None
+        self._toggle_inputs(True)
+        self._update_validation()
+        self._update_undo_ui()
+        self._switch_mode("create")  # Switch back to create mode
+
+    def _on_update_progress(self, message: str) -> None:
+        """Handle progress updates from update worker."""
+        current_value = self.progress_bar.value()
+        if current_value < self.progress_bar.maximum():
+            self._update_progress(current_value + 1)
+        self._show_status(message, 3000)
+        self._append_log(message)
+
+    def _on_update_error(self, message: str) -> None:
+        self._append_log(f"Update error: {message}")
+        QtWidgets.QMessageBox.critical(self, "Update error", message)
+        self._stop_thread(self.update_thread, self.update_worker)
+        self.update_thread = None
+        self.update_worker = None
+        self._toggle_inputs(True)
+        self._update_validation()
+
+    def _on_update_finished(
+        self,
+        new_events: list[EnhancedCreatedEvent],
+        old_event_snapshots: list[EnhancedCreatedEvent],
+    ) -> None:
+        self._append_log(f"Update complete. Created {len(new_events)} updated events.")
+        
+        # NEW: Record as single "update" operation with both old and new snapshots
+        description = f"{len(new_events)} updated events: {new_events[0].event_name if new_events else 'Unknown'}"
+        combined_snapshots = old_event_snapshots + new_events
+        
+        self.undo_manager.add_operation(
+            operation_type="update",
+            affected_event_ids=[e.event_id for e in new_events],
+            event_snapshots=combined_snapshots,
+            description=description,
+        )
+        self.undo_manager.save_history(str(self._app_data_dir))
+        
+        self._stop_thread(self.update_thread, self.update_worker)
+        self.update_thread = None
+        self.update_worker = None
+        self._toggle_inputs(True)
+        self._update_validation()
+        self._update_undo_ui()
+        self._switch_mode("create")  # Switch back to create mode
 
     def _append_log(self, message: str) -> None:
         self.log_box.appendPlainText(message)
