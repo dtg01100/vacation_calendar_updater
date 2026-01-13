@@ -232,6 +232,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.start_date = DatePicker()
         layout.addWidget(self.start_date, 3, 1)
 
+        layout.addWidget(QtWidgets.QLabel("Start Time"), 3, 2)
         self.start_time = QtWidgets.QTimeEdit()
         self.start_time.setDisplayFormat("HH:mm")
         self.start_time.setMinimumWidth(90)
@@ -405,58 +406,67 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_validation()
 
     def _build_time_picker(self, layout: QtWidgets.QGridLayout) -> None:
-        """Add a time edit with a combobox of preset times and custom option."""
-        from .time_picker import TimePickerDialog
-
+        """Add spinners for hour/minute and a combobox with preset times."""
         container = QtWidgets.QWidget()
         hbox = QtWidgets.QHBoxLayout()
         hbox.setContentsMargins(0, 0, 0, 0)
         hbox.setSpacing(4)
         container.setLayout(hbox)
 
-        # Start time input field
-        hbox.addWidget(self.start_time)
+        # Hour spinner
+        self.hour_spinbox = QtWidgets.QSpinBox()
+        self.hour_spinbox.setMinimum(0)
+        self.hour_spinbox.setMaximum(23)
+        self.hour_spinbox.setValue(8)
+        self.hour_spinbox.setMaximumWidth(60)
+        self.hour_spinbox.setPrefix("h: ")
+        self.hour_spinbox.valueChanged.connect(self._on_time_spinners_changed)
+        hbox.addWidget(self.hour_spinbox)
+
+        # Minute spinner
+        self.minute_spinbox = QtWidgets.QSpinBox()
+        self.minute_spinbox.setMinimum(0)
+        self.minute_spinbox.setMaximum(59)
+        self.minute_spinbox.setValue(0)
+        self.minute_spinbox.setMaximumWidth(60)
+        self.minute_spinbox.setPrefix("m: ")
+        self.minute_spinbox.valueChanged.connect(self._on_time_spinners_changed)
+        hbox.addWidget(self.minute_spinbox)
 
         # Preset times dropdown
         self.time_preset_combo = QtWidgets.QComboBox()
-        self.time_preset_combo.setMaximumWidth(120)
+        self.time_preset_combo.setMaximumWidth(110)
         self.time_preset_combo.addItem("8:00", 8 * 3600)
         self.time_preset_combo.addItem("9:00", 9 * 3600)
         self.time_preset_combo.addItem("12:00", 12 * 3600)
         self.time_preset_combo.addItem("13:00", 13 * 3600)
         self.time_preset_combo.addItem("14:00", 14 * 3600)
         self.time_preset_combo.addItem("17:00", 17 * 3600)
-        self.time_preset_combo.addItem("Custom...", -1)
-        self.time_preset_combo.currentIndexChanged.connect(self._on_time_preset_selected)
+        self.time_preset_combo.currentIndexChanged.connect(self._on_preset_selected)
         hbox.addWidget(self.time_preset_combo)
 
         layout.addWidget(container, 3, 3)
 
-    def _on_time_preset_selected(self) -> None:
-        """Handle preset time selection or custom option."""
-        from .time_picker import TimePickerDialog
+    def _on_time_spinners_changed(self) -> None:
+        """Update start_time when spinners change."""
+        self.start_time.setTime(QtCore.QTime(self.hour_spinbox.value(), self.minute_spinbox.value()))
+        self._update_validation()
 
+    def _on_preset_selected(self) -> None:
+        """Handle preset selection - update spinners."""
         data = self.time_preset_combo.currentData()
-        if data == -1:  # Custom option selected
-            dialog = TimePickerDialog(self, self.start_time.time())
-            if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
-                selected_time = dialog.get_selected_time()
-                self.start_time.setTime(selected_time)
-                # Reset combo to show current time
-                self.time_preset_combo.blockSignals(True)
-                self.time_preset_combo.setCurrentIndex(self.time_preset_combo.count() - 1)
-                self.time_preset_combo.blockSignals(False)
-            else:
-                # Reset combo if dialog cancelled
-                self.time_preset_combo.blockSignals(True)
-                self.time_preset_combo.setCurrentIndex(0)
-                self.time_preset_combo.blockSignals(False)
-        else:
-            # Preset time selected
+        if data is not None:
             seconds = data
             hours = seconds // 3600
             minutes = (seconds % 3600) // 60
+            self.hour_spinbox.blockSignals(True)
+            self.minute_spinbox.blockSignals(True)
+            self.hour_spinbox.setValue(hours)
+            self.minute_spinbox.setValue(minutes)
+            self.hour_spinbox.blockSignals(False)
+            self.minute_spinbox.blockSignals(False)
             self.start_time.setTime(QtCore.QTime(hours, minutes))
+            self._update_validation()
 
     def _current_weekdays(self) -> dict[str, bool]:
         return {key: box.isChecked() for key, box in self.weekday_boxes.items()}
