@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
+from abc import abstractmethod
 from collections.abc import Iterable
 
 from googleapiclient.errors import HttpError
@@ -11,17 +12,56 @@ from .services import CreatedEvent, EnhancedCreatedEvent, GoogleApi
 from .validation import ScheduleRequest, build_schedule
 
 
-class EventCreationWorker(QObject):
-    finished = Signal(list)  # List[EnhancedCreatedEvent]
+class BaseWorker(QObject):
+    """Abstract base worker with common functionality for all workers."""
+
     progress = Signal(str)
     error = Signal(str)
+
+    def __init__(self, api: GoogleApi) -> None:
+        super().__init__()
+        self.api = api
+
+    @abstractmethod
+    @Slot()
+    def run(self) -> None:
+        """Implement in subclass to perform the worker's task."""
+        pass
+
+    def send_notification_email(
+        self, recipient: str, subject: str, body: str, *, enabled: bool
+    ) -> None:
+        """Send notification email if enabled, with progress update.
+
+        Args:
+            recipient: Email address to send to
+            subject: Email subject line
+            body: Email body text
+            enabled: Whether email sending is enabled
+        """
+        try:
+            self.api.send_email(recipient, subject, body, enabled=enabled)
+            if enabled:
+                self.progress.emit("Notification email sent")
+        except Exception as e:
+            self.progress.emit(f"Email notification failed: {e}")
+
+    def safe_run(self) -> None:
+        """Wrapper with standard error handling."""
+        try:
+            self.run()
+        except Exception as exc:
+            self.error.emit(str(exc))
+
+
+class EventCreationWorker(BaseWorker):
+    finished = Signal(list)  # List[EnhancedCreatedEvent]
     stopped = Signal()
 
     def __init__(
         self, api: GoogleApi, calendar_id: str, request: ScheduleRequest
     ) -> None:
-        super().__init__()
-        self.api = api
+        super().__init__(api)
         self.calendar_id = calendar_id
         self.request = request
         self._stop_requested = False
@@ -84,23 +124,19 @@ class EventCreationWorker(QObject):
                     f'Calendar event(s) created for "{self.request.event_name}" event, for {total_hours} hours, '
                     f"over the course of {len(created)} days. The event days are between {self.request.start_date} and {self.request.end_date}."
                 )
-                self.api.send_email(
+                self.send_notification_email(
                     self.request.notification_email,
                     f"{self.request.event_name} Calendar Event Created ({self.request.start_date}_{self.request.end_date})",
                     message_text,
                     enabled=self.request.send_email,
                 )
-                if self.request.send_email:
-                    self.progress.emit("Notification email sent")
             self.finished.emit(created)
         except Exception as exc:
             self.error.emit(str(exc))
 
 
-class UndoWorker(QObject):
+class UndoWorker(BaseWorker):
     finished = Signal(list)  # List of deleted event IDs
-    progress = Signal(str)
-    error = Signal(str)
 
     def __init__(
         self,
@@ -111,8 +147,7 @@ class UndoWorker(QObject):
         notification_email: str,
         batch_description: str = "",
     ) -> None:
-        super().__init__()
-        self.api = api
+        super().__init__(api)
         self.events = list(events)
         self.send_email = send_email
         self.notification_email = notification_email
@@ -164,14 +199,12 @@ class UndoWorker(QObject):
                     f"Deleted on: {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
                 )
 
-                self.api.send_email(
+                self.send_notification_email(
                     self.notification_email,
                     f"Calendar Events Deleted - {counter} events",
                     message_text,
                     enabled=self.send_email,
                 )
-                if self.send_email:
-                    self.progress.emit("Deletion email sent")
             self.finished.emit(deleted_event_ids)
         except Exception as exc:
             self.error.emit(str(exc))
@@ -195,12 +228,10 @@ class StartupWorker(QThread):
         except Exception as exc:
             self.error.emit(str(exc))
 
-class DeleteWorker(QObject):
+class DeleteWorker(BaseWorker):
     """Worker to delete a batch of events from the calendar."""
 
     finished = Signal(list, str)  # (deleted_event_ids, batch_description)
-    progress = Signal(str)
-    error = Signal(str)
 
     def __init__(
         self,
@@ -211,8 +242,7 @@ class DeleteWorker(QObject):
         notification_email: str,
         batch_description: str = "",
     ) -> None:
-        super().__init__()
-        self.api = api
+        super().__init__(api)
         self.events = list(events)
         self.send_email = send_email
         self.notification_email = notification_email
@@ -263,25 +293,21 @@ class DeleteWorker(QObject):
                     f"Deleted on: {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
                 )
 
-                self.api.send_email(
+                self.send_notification_email(
                     self.notification_email,
                     f"Calendar Events Deleted - {counter} events",
                     message_text,
                     enabled=self.send_email,
                 )
-                if self.send_email:
-                    self.progress.emit("Deletion email sent")
             self.finished.emit(deleted_event_ids, self.batch_description)
         except Exception as exc:
             self.error.emit(str(exc))
 
 
-class UpdateWorker(QObject):
+class UpdateWorker(BaseWorker):
     """Worker to update a batch of events with a new schedule."""
 
     finished = Signal(list, list)  # (new_events, old_event_snapshots)
-    progress = Signal(str)
-    error = Signal(str)
 
     def __init__(
         self,
@@ -293,8 +319,7 @@ class UpdateWorker(QObject):
         send_email: bool,
         notification_email: str,
     ) -> None:
-        super().__init__()
-        self.api = api
+        super().__init__(api)
         self.calendar_id = calendar_id
         self.old_events = list(old_events)
         self.new_request = new_request
@@ -373,14 +398,12 @@ class UpdateWorker(QObject):
                     f'Calendar event(s) updated for "{self.new_request.event_name}", for {total_hours} hours, '
                     f"over {len(created)} days. New dates: {self.new_request.start_date} to {self.new_request.end_date}."
                 )
-                self.api.send_email(
+                self.send_notification_email(
                     self.new_request.notification_email,
                     f"{self.new_request.event_name} Calendar Event Updated ({self.new_request.start_date}_{self.new_request.end_date})",
                     message_text,
                     enabled=self.new_request.send_email,
                 )
-                if self.new_request.send_email:
-                    self.progress.emit("Notification email sent")
 
             # NEW: Emit both old and new events for atomic operation recording
             self.finished.emit(created, old_event_snapshots)
