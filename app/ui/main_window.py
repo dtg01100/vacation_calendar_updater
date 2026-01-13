@@ -432,7 +432,7 @@ class MainWindow(QtWidgets.QMainWindow):
         hbox.addWidget(self.start_time)
         hbox.addWidget(time_button)
 
-        layout.addWidget(container, 1, 3)
+        layout.addWidget(container, 3, 3)
 
     def _populate_time_menu(self, menu: QtWidgets.QMenu) -> None:
         menu.clear()
