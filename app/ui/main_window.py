@@ -232,7 +232,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.start_date = DatePicker()
         layout.addWidget(self.start_date, 3, 1)
 
-        layout.addWidget(QtWidgets.QLabel("Start Time"), 3, 2)
         self.start_time = QtWidgets.QTimeEdit()
         self.start_time.setDisplayFormat("HH:mm")
         self.start_time.setMinimumWidth(90)
