@@ -406,43 +406,53 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_validation()
 
     def _build_time_picker(self, layout: QtWidgets.QGridLayout) -> None:
-        """Add a time edit with a drop-down of common times."""
+        """Add a time edit with preset buttons and an advanced option."""
+        from .time_picker import TimePickerDialog
 
         container = QtWidgets.QWidget()
         hbox = QtWidgets.QHBoxLayout()
         hbox.setContentsMargins(0, 0, 0, 0)
-        hbox.setSpacing(4)
+        hbox.setSpacing(6)
         container.setLayout(hbox)
 
-        time_button = QtWidgets.QToolButton()
-        icon = self.style().standardIcon(
-            QtWidgets.QStyle.StandardPixmap.SP_BrowserReload
-        )
-        if icon.isNull():
-            time_button.setText("⋯")
-        else:
-            time_button.setIcon(icon)
-        time_button.setToolTip("Pick a common start time")
-        time_button.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
-
-        menu = QtWidgets.QMenu(time_button)
-        self._populate_time_menu(menu)
-        time_button.setMenu(menu)
-
+        # Start time input field
         hbox.addWidget(self.start_time)
-        hbox.addWidget(time_button)
+
+        # Preset time buttons (fixed width 60px each)
+        preset_times = [
+            ("8:00", 8, 0),
+            ("9:00", 9, 0),
+            ("12:00", 12, 0),
+            ("13:00", 13, 0),
+            ("14:00", 14, 0),
+            ("17:00", 17, 0),
+        ]
+
+        for label, hour, minute in preset_times:
+            btn = QtWidgets.QPushButton(label)
+            btn.setMaximumWidth(60)
+            btn.clicked.connect(
+                lambda _checked=False, h=hour, m=minute: self.start_time.setTime(
+                    QtCore.QTime(h, m)
+                )
+            )
+            hbox.addWidget(btn)
+
+        # Advanced button
+        advanced_btn = QtWidgets.QPushButton("Advanced...")
+        advanced_btn.setMaximumWidth(90)
+        advanced_btn.clicked.connect(self._open_time_picker_dialog)
+        hbox.addWidget(advanced_btn)
 
         layout.addWidget(container, 3, 3)
 
-    def _populate_time_menu(self, menu: QtWidgets.QMenu) -> None:
-        menu.clear()
-        for hour in range(6, 20):  # 06:00 to 19:45
-            for minute in (0, 15, 30, 45):
-                t = QtCore.QTime(hour, minute)
-                action = menu.addAction(t.toString("HH:mm"))
-                action.triggered.connect(
-                    lambda _checked=False, tt=t: self.start_time.setTime(tt)
-                )
+    def _open_time_picker_dialog(self) -> None:
+        """Open the advanced time picker dialog."""
+        from .time_picker import TimePickerDialog
+
+        dialog = TimePickerDialog(self, self.start_time.time())
+        if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+            self.start_time.setTime(dialog.get_selected_time())
 
     def _current_weekdays(self) -> dict[str, bool]:
         return {key: box.isChecked() for key, box in self.weekday_boxes.items()}
