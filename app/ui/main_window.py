@@ -406,53 +406,58 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_validation()
 
     def _build_time_picker(self, layout: QtWidgets.QGridLayout) -> None:
-        """Add a time edit with preset buttons and an advanced option."""
+        """Add a time edit with a combobox of preset times and custom option."""
         from .time_picker import TimePickerDialog
 
         container = QtWidgets.QWidget()
         hbox = QtWidgets.QHBoxLayout()
         hbox.setContentsMargins(0, 0, 0, 0)
-        hbox.setSpacing(6)
+        hbox.setSpacing(4)
         container.setLayout(hbox)
 
         # Start time input field
         hbox.addWidget(self.start_time)
 
-        # Preset time buttons (fixed width 60px each)
-        preset_times = [
-            ("8:00", 8, 0),
-            ("9:00", 9, 0),
-            ("12:00", 12, 0),
-            ("13:00", 13, 0),
-            ("14:00", 14, 0),
-            ("17:00", 17, 0),
-        ]
-
-        for label, hour, minute in preset_times:
-            btn = QtWidgets.QPushButton(label)
-            btn.setMaximumWidth(60)
-            btn.clicked.connect(
-                lambda _checked=False, h=hour, m=minute: self.start_time.setTime(
-                    QtCore.QTime(h, m)
-                )
-            )
-            hbox.addWidget(btn)
-
-        # Advanced button
-        advanced_btn = QtWidgets.QPushButton("Advanced...")
-        advanced_btn.setMaximumWidth(90)
-        advanced_btn.clicked.connect(self._open_time_picker_dialog)
-        hbox.addWidget(advanced_btn)
+        # Preset times dropdown
+        self.time_preset_combo = QtWidgets.QComboBox()
+        self.time_preset_combo.setMaximumWidth(120)
+        self.time_preset_combo.addItem("8:00", 8 * 3600)
+        self.time_preset_combo.addItem("9:00", 9 * 3600)
+        self.time_preset_combo.addItem("12:00", 12 * 3600)
+        self.time_preset_combo.addItem("13:00", 13 * 3600)
+        self.time_preset_combo.addItem("14:00", 14 * 3600)
+        self.time_preset_combo.addItem("17:00", 17 * 3600)
+        self.time_preset_combo.addItem("Custom...", -1)
+        self.time_preset_combo.currentIndexChanged.connect(self._on_time_preset_selected)
+        hbox.addWidget(self.time_preset_combo)
 
         layout.addWidget(container, 3, 3)
 
-    def _open_time_picker_dialog(self) -> None:
-        """Open the advanced time picker dialog."""
+    def _on_time_preset_selected(self) -> None:
+        """Handle preset time selection or custom option."""
         from .time_picker import TimePickerDialog
 
-        dialog = TimePickerDialog(self, self.start_time.time())
-        if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
-            self.start_time.setTime(dialog.get_selected_time())
+        data = self.time_preset_combo.currentData()
+        if data == -1:  # Custom option selected
+            dialog = TimePickerDialog(self, self.start_time.time())
+            if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+                selected_time = dialog.get_selected_time()
+                self.start_time.setTime(selected_time)
+                # Reset combo to show current time
+                self.time_preset_combo.blockSignals(True)
+                self.time_preset_combo.setCurrentIndex(self.time_preset_combo.count() - 1)
+                self.time_preset_combo.blockSignals(False)
+            else:
+                # Reset combo if dialog cancelled
+                self.time_preset_combo.blockSignals(True)
+                self.time_preset_combo.setCurrentIndex(0)
+                self.time_preset_combo.blockSignals(False)
+        else:
+            # Preset time selected
+            seconds = data
+            hours = seconds // 3600
+            minutes = (seconds % 3600) // 60
+            self.start_time.setTime(QtCore.QTime(hours, minutes))
 
     def _current_weekdays(self) -> dict[str, bool]:
         return {key: box.isChecked() for key, box in self.weekday_boxes.items()}
