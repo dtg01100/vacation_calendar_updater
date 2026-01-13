@@ -389,6 +389,38 @@ class UndoManager(QObject):
         
         return batches
 
+    def get_batches_for_date(self, target_date: dt.date, day_range: int = 7) -> list[UndoBatch]:
+        """Get batches containing events on or near a specific date.
+
+        Args:
+            target_date: The date to filter by
+            day_range: How many days before/after to include (default 7)
+
+        Returns:
+            List of batches with events in the date range, most recent first
+        """
+        result = []
+        seen_batch_ids = set()
+        
+        # Get all undoable batches
+        all_batches = self.get_undoable_batches()
+        
+        for batch in all_batches:
+            if batch.batch_id in seen_batch_ids:
+                continue
+                
+            # Check if any event in this batch falls within the date range
+            for event in batch.events:
+                event_date = event.start_time.date()
+                days_diff = abs((event_date - target_date).days)
+                
+                if days_diff <= day_range:
+                    result.append(batch)
+                    seen_batch_ids.add(batch.batch_id)
+                    break  # Don't add batch twice
+        
+        return result
+
     def get_recent_batches(self, limit: int = 5) -> list[UndoBatch]:
         """Get the most recent batches (backwards compatibility).
         

@@ -17,6 +17,7 @@ from ..validation import (
 )
 from ..workers import EventCreationWorker, StartupWorker, UndoWorker, DeleteWorker, UpdateWorker
 from .datepicker import DatePicker
+from .batch_selector import BatchSelectorDialog
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -196,12 +197,26 @@ class MainWindow(QtWidgets.QMainWindow):
         self.batch_selector_label.setVisible(False)
         layout.addWidget(self.batch_selector_label, 1, 0)
         
+        # Batch selector button and combo
+        batch_selector_frame = QtWidgets.QFrame()
+        batch_selector_layout = QtWidgets.QHBoxLayout()
+        batch_selector_layout.setContentsMargins(0, 0, 0, 0)
+        batch_selector_frame.setLayout(batch_selector_layout)
+        
+        self.batch_selector_btn = QtWidgets.QPushButton("Select Batch...")
+        self.batch_selector_btn.setMaximumWidth(150)
+        self.batch_selector_btn.clicked.connect(self._open_batch_selector)
+        self.batch_selector_btn.setVisible(False)
+        batch_selector_layout.addWidget(self.batch_selector_btn)
+        
         self.batch_selector_combo = QtWidgets.QComboBox()
         self.batch_selector_combo.setMinimumWidth(200)
         self.batch_selector_combo.setPlaceholderText("Pick a batch to modify...")
         self.batch_selector_combo.currentIndexChanged.connect(self._on_batch_selected)
         self.batch_selector_combo.setVisible(False)
-        layout.addWidget(self.batch_selector_combo, 1, 1)
+        batch_selector_layout.addWidget(self.batch_selector_combo)
+        
+        layout.addWidget(batch_selector_frame, 1, 1)
 
         # Row 2
         layout.addWidget(QtWidgets.QLabel("Event Name"), 2, 0)
@@ -602,12 +617,14 @@ class MainWindow(QtWidgets.QMainWindow):
         if mode == "create":
             self.process_button.setText("Insert Into Calendar")
             self.batch_selector_label.setVisible(False)
+            self.batch_selector_btn.setVisible(False)
             self.batch_selector_combo.setVisible(False)
             # Show all form fields
             self._set_form_fields_visible(True, True, True)
         elif mode == "update":
             self.process_button.setText("Update Events")
             self.batch_selector_label.setVisible(True)
+            self.batch_selector_btn.setVisible(True)
             self.batch_selector_combo.setVisible(True)
             # Show all form fields
             self._set_form_fields_visible(True, True, True)
@@ -615,6 +632,7 @@ class MainWindow(QtWidgets.QMainWindow):
         elif mode == "delete":
             self.process_button.setText("Delete Events")
             self.batch_selector_label.setVisible(True)
+            self.batch_selector_btn.setVisible(True)
             self.batch_selector_combo.setVisible(True)
             # Hide most form fields for delete mode, just show batch selector
             self._set_form_fields_visible(False, False, False)
@@ -661,6 +679,18 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.selected_batch_for_operation = None
             self._update_validation()
+
+    def _open_batch_selector(self) -> None:
+        """Open the calendar-based batch selector dialog."""
+        dialog = BatchSelectorDialog(self.undo_manager, self)
+        if dialog.exec() == QtWidgets.QDialog.Accepted:
+            batch_id = dialog.get_selected_batch_id()
+            if batch_id:
+                # Find and select the batch in the combo box
+                for i in range(self.batch_selector_combo.count()):
+                    if self.batch_selector_combo.itemData(i) == batch_id:
+                        self.batch_selector_combo.setCurrentIndex(i)
+                        break
 
     def _process_create(self) -> None:
         if self._creation_running():
