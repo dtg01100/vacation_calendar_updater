@@ -311,3 +311,359 @@ class TestBatchSelectorDateFiltering:
         
         # Should get only recent batches based on event dates
         assert len(batches) >= 0  # Depends on event timestamps
+
+
+class TestModeLayoutGeometry:
+    """Validates widget layout and geometry across the three modes (CREATE, UPDATE, DELETE)."""
+    
+    def test_create_mode_batch_selector_not_visible(self, qtbot, mock_api, mock_config):
+        """Test batch selector widgets are NOT visible in CREATE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("create")
+            
+            assert not window.batch_selector_label.isVisible()
+            assert not window.batch_selector_btn.isVisible()
+            assert not window.batch_selector_combo.isVisible()
+    
+    def test_create_mode_event_name_email_visible(self, qtbot, mock_api, mock_config):
+        """Test event name and email inputs ARE visible in CREATE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("create")
+            
+            assert window.event_name.isVisible()
+            assert window.notification_email.isVisible()
+    
+    def test_create_mode_date_pickers_visible(self, qtbot, mock_api, mock_config):
+        """Test date pickers ARE visible in CREATE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("create")
+            
+            assert window.start_date.isVisible()
+            assert window.end_date.isVisible()
+    
+    def test_create_mode_time_inputs_visible(self, qtbot, mock_api, mock_config):
+        """Test time inputs ARE visible in CREATE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("create")
+            
+            assert window.start_time.isVisible()
+            assert window.day_length.isVisible()
+    
+    def test_create_mode_weekday_checkboxes_visible(self, qtbot, mock_api, mock_config):
+        """Test weekday checkboxes ARE visible in CREATE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("create")
+            
+            for checkbox in window.weekday_boxes.values():
+                assert checkbox.isVisible()
+            assert window.days_label.isVisible()
+    
+    def test_create_mode_process_button_text(self, qtbot, mock_api, mock_config):
+        """Test process button has correct text in CREATE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("create")
+            
+            assert window.process_button.text() == "Insert Into Calendar"
+    
+    def test_create_mode_log_box_visible(self, qtbot, mock_api, mock_config):
+        """Test log box is visible and spans full width in CREATE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("create")
+            
+            assert window.log_box.isVisible()
+    
+    def test_update_mode_batch_selector_visible(self, qtbot, mock_api, mock_config):
+        """Test batch selector widgets ARE visible in UPDATE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("update")
+            
+            assert window.batch_selector_label.isVisible()
+            assert window.batch_selector_btn.isVisible()
+            assert window.batch_selector_combo.isVisible()
+    
+    def test_update_mode_batch_selector_button_max_width(self, qtbot, mock_api, mock_config):
+        """Test batch selector button has maxWidth=150 in UPDATE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("update")
+            
+            assert window.batch_selector_btn.maximumWidth() == 150
+    
+    def test_update_mode_batch_selector_combo_min_width(self, qtbot, mock_api, mock_config):
+        """Test batch selector combo has minWidth=200 in UPDATE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("update")
+            
+            assert window.batch_selector_combo.minimumWidth() == 200
+    
+    def test_update_mode_event_name_email_visible(self, qtbot, mock_api, mock_config):
+        """Test event name and email ARE visible in UPDATE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("update")
+            
+            assert window.event_name.isVisible()
+            assert window.notification_email.isVisible()
+    
+    def test_update_mode_date_pickers_visible(self, qtbot, mock_api, mock_config):
+        """Test date pickers ARE visible in UPDATE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("update")
+            
+            assert window.start_date.isVisible()
+            assert window.end_date.isVisible()
+    
+    def test_update_mode_time_inputs_visible(self, qtbot, mock_api, mock_config):
+        """Test time inputs ARE visible in UPDATE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("update")
+            
+            assert window.start_time.isVisible()
+            assert window.day_length.isVisible()
+    
+    def test_update_mode_weekday_checkboxes_visible(self, qtbot, mock_api, mock_config):
+        """Test weekday checkboxes ARE visible in UPDATE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("update")
+            
+            for checkbox in window.weekday_boxes.values():
+                assert checkbox.isVisible()
+            assert window.days_label.isVisible()
+    
+    def test_update_mode_process_button_text(self, qtbot, mock_api, mock_config):
+        """Test process button has correct text in UPDATE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("update")
+            
+            assert window.process_button.text() == "Update Events"
+    
+    def test_delete_mode_batch_selector_visible(self, qtbot, mock_api, mock_config):
+        """Test batch selector widgets ARE visible in DELETE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("delete")
+            
+            assert window.batch_selector_label.isVisible()
+            assert window.batch_selector_btn.isVisible()
+            assert window.batch_selector_combo.isVisible()
+    
+    def test_delete_mode_event_name_email_not_visible(self, qtbot, mock_api, mock_config):
+        """Test event name and email are NOT visible in DELETE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("delete")
+            
+            assert not window.event_name.isVisible()
+            assert not window.notification_email.isVisible()
+    
+    def test_delete_mode_date_pickers_not_visible(self, qtbot, mock_api, mock_config):
+        """Test date pickers are NOT visible in DELETE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("delete")
+            
+            assert not window.start_date.isVisible()
+            assert not window.end_date.isVisible()
+    
+    def test_delete_mode_time_inputs_not_visible(self, qtbot, mock_api, mock_config):
+        """Test time inputs are NOT visible in DELETE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("delete")
+            
+            assert not window.start_time.isVisible()
+            assert not window.day_length.isVisible()
+    
+    def test_delete_mode_weekday_checkboxes_not_visible(self, qtbot, mock_api, mock_config):
+        """Test weekday checkboxes are NOT visible in DELETE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("delete")
+            
+            for checkbox in window.weekday_boxes.values():
+                assert not checkbox.isVisible()
+            assert not window.days_label.isVisible()
+    
+    def test_delete_mode_process_button_text(self, qtbot, mock_api, mock_config):
+        """Test process button has correct text in DELETE mode."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("delete")
+            
+            assert window.process_button.text() == "Delete Events"
+    
+    def test_delete_mode_minimal_visible_widgets(self, qtbot, mock_api, mock_config):
+        """Test DELETE mode shows only batch selector and process button/undo widgets."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            window._switch_mode("delete")
+            
+            # Visible in DELETE mode
+            assert window.batch_selector_label.isVisible()
+            assert window.batch_selector_btn.isVisible()
+            assert window.batch_selector_combo.isVisible()
+            assert window.process_button.isVisible()
+            assert window.undo_button.isVisible()
+            assert window.undo_combo.isVisible()
+            
+            # NOT visible in DELETE mode
+            assert not window.event_name.isVisible()
+            assert not window.notification_email.isVisible()
+            assert not window.start_date.isVisible()
+            assert not window.end_date.isVisible()
+            assert not window.start_time.isVisible()
+            assert not window.day_length.isVisible()
+            for checkbox in window.weekday_boxes.values():
+                assert not checkbox.isVisible()
+    
+    def test_mode_switching_preserves_visibility_state(self, qtbot, mock_api, mock_config):
+        """Test that switching between modes updates visibility correctly."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+            
+            # Start in CREATE mode (default)
+            window._switch_mode("create")
+            assert window.event_name.isVisible()
+            assert not window.batch_selector_label.isVisible()
+            
+            # Switch to UPDATE mode
+            window._switch_mode("update")
+            assert window.event_name.isVisible()
+            assert window.batch_selector_label.isVisible()
+            
+            # Switch to DELETE mode
+            window._switch_mode("delete")
+            assert not window.event_name.isVisible()
+            assert window.batch_selector_label.isVisible()
+            
+            # Switch back to CREATE mode
+            window._switch_mode("create")
+            assert window.event_name.isVisible()
+            assert not window.batch_selector_label.isVisible()
