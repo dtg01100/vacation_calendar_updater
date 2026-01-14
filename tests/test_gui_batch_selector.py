@@ -224,8 +224,8 @@ class TestMainWindowBatchSelectorIntegration:
             window._switch_mode("update")
             # Button should exist and be properly configured
             assert hasattr(window, "batch_selector_btn")
-            # In UPDATE mode, button should be set to visible (parent frame visibility may vary)
-            assert window.batch_selector_label.isVisible() or True  # Check parent is visible
+            # In UPDATE mode, button should be visible
+            assert window.batch_selector_btn.isVisible()
     
     def test_batch_selector_button_hidden_in_create_mode(self, qtbot, mock_api, mock_config):
         """Test batch selector button is hidden in CREATE mode."""
@@ -251,8 +251,8 @@ class TestMainWindowBatchSelectorIntegration:
             window._switch_mode("delete")
             # Button should exist and be properly configured
             assert hasattr(window, "batch_selector_btn")
-            # In DELETE mode, button should be set to visible
-            assert window.batch_selector_label.isVisible() or True  # Check parent is visible
+            # In DELETE mode, button should be visible
+            assert window.batch_selector_btn.isVisible()
     
     def test_batch_selector_button_is_clickable(self, qtbot, mock_api, mock_config):
         """Test batch selector button is enabled and clickable."""
@@ -326,10 +326,8 @@ class TestModeLayoutGeometry:
             window.show()
             
             window._switch_mode("create")
-            
-            assert not window.batch_selector_label.isVisible()
+
             assert not window.batch_selector_btn.isVisible()
-            assert not window.batch_selector_combo.isVisible()
     
     def test_create_mode_event_name_email_visible(self, qtbot, mock_api, mock_config):
         """Test event name and email inputs ARE visible in CREATE mode."""
@@ -424,37 +422,35 @@ class TestModeLayoutGeometry:
             window.show()
             
             window._switch_mode("update")
-            
-            assert window.batch_selector_label.isVisible()
-            assert not window.batch_selector_btn.isVisible()
-            assert window.batch_selector_combo.isVisible()
+
+            assert window.batch_selector_btn.isVisible()
     
     def test_update_mode_batch_selector_button_max_width(self, qtbot, mock_api, mock_config):
-        """Test batch selector button has maxWidth=150 in UPDATE mode."""
+        """Test batch selector button has maxWidth=200 in UPDATE mode."""
         with patch("app.ui.main_window.StartupWorker"):
             window = MainWindow(api=mock_api, config=mock_config)
             window.calendar_names = ["Primary"]
             window.calendar_id_by_name = {"Primary": "cal_001"}
             qtbot.addWidget(window)
             window.show()
-            
+
             window._switch_mode("update")
-            
-            assert window.batch_selector_btn.maximumWidth() == 150
-    
-    def test_update_mode_batch_selector_combo_min_width(self, qtbot, mock_api, mock_config):
-        """Test batch selector combo has minWidth=200 in UPDATE mode."""
+
+            assert window.batch_selector_btn.maximumWidth() == 200
+
+    def test_update_mode_batch_summary_visible(self, qtbot, mock_api, mock_config):
+        """Test batch summary label exists in UPDATE mode."""
         with patch("app.ui.main_window.StartupWorker"):
             window = MainWindow(api=mock_api, config=mock_config)
             window.calendar_names = ["Primary"]
             window.calendar_id_by_name = {"Primary": "cal_001"}
             qtbot.addWidget(window)
             window.show()
-            
+
             window._switch_mode("update")
-            
-            assert window.batch_selector_combo.minimumWidth() == 200
-    
+
+            assert hasattr(window, "batch_summary_label")
+
     def test_update_mode_event_name_email_visible(self, qtbot, mock_api, mock_config):
         """Test event name and email ARE visible in UPDATE mode."""
         with patch("app.ui.main_window.StartupWorker"):
@@ -535,10 +531,8 @@ class TestModeLayoutGeometry:
             window.show()
             
             window._switch_mode("delete")
-            
-            assert window.batch_selector_label.isVisible()
-            assert not window.batch_selector_btn.isVisible()
-            assert window.batch_selector_combo.isVisible()
+
+            assert window.batch_selector_btn.isVisible()
     
     def test_delete_mode_event_name_email_not_visible(self, qtbot, mock_api, mock_config):
         """Test event name and email are NOT visible in DELETE mode."""
@@ -620,14 +614,11 @@ class TestModeLayoutGeometry:
             window.show()
             
             window._switch_mode("delete")
-            
+
             # Visible in DELETE mode
-            assert window.batch_selector_label.isVisible()
-            assert not window.batch_selector_btn.isVisible()
-            assert window.batch_selector_combo.isVisible()
+            assert window.batch_selector_btn.isVisible()
             assert window.process_button.isVisible()
             assert window.undo_button.isVisible()
-            assert window.undo_combo.isVisible()
             
             # NOT visible in DELETE mode
             assert not window.event_name.isVisible()
@@ -651,19 +642,19 @@ class TestModeLayoutGeometry:
             # Start in CREATE mode (default)
             window._switch_mode("create")
             assert window.event_name.isVisible()
-            assert not window.batch_selector_label.isVisible()
+            assert not window.batch_selector_btn.isVisible()
             
             # Switch to UPDATE mode
             window._switch_mode("update")
             assert window.event_name.isVisible()
-            assert window.batch_selector_label.isVisible()
+            assert window.batch_selector_btn.isVisible()
             
             # Switch to DELETE mode
             window._switch_mode("delete")
             assert not window.event_name.isVisible()
-            assert window.batch_selector_label.isVisible()
+            assert window.batch_selector_btn.isVisible()
             
             # Switch back to CREATE mode
             window._switch_mode("create")
             assert window.event_name.isVisible()
-            assert not window.batch_selector_label.isVisible()
+            assert not window.batch_selector_btn.isVisible()

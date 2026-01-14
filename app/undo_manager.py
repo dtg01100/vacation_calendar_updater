@@ -241,6 +241,25 @@ class UndoManager(QObject):
         """
         return list(self.undo_stack)
 
+    def get_history_stats(self) -> dict[str, int]:
+        """Return basic statistics about undo/redo history.
+
+        The counts intentionally reflect only what is currently undoable or
+        redoable to keep the UI messaging simple.
+        """
+
+        undoable_batches = len(self.undo_stack)
+        undoable_events = sum(len(op.event_snapshots) for op in self.undo_stack)
+        redoable_batches = len(self.redo_stack)
+        redoable_events = sum(len(op.event_snapshots) for op in self.redo_stack)
+
+        return {
+            "undoable_batches": undoable_batches,
+            "undoable_events": undoable_events,
+            "redoable_batches": redoable_batches,
+            "redoable_events": redoable_events,
+        }
+
     def get_batches_for_date(self, target_date: dt.date, day_range: int = 7) -> list[UndoBatch]:
         """Get batches containing events on or near a specific date.
 
@@ -327,6 +346,52 @@ class UndoManager(QObject):
     def can_undo(self) -> bool:
         """Check if there are operations that can be undone."""
         return len(self.undo_stack) > 0
+
+    def can_redo(self) -> bool:
+        """Check if there are operations that can be redone."""
+        return len(self.redo_stack) > 0
+
+    def undo_batch(self, batch_id: str) -> None:
+        """Mark a batch as undone (same as undo())."""
+        # This is called after the undo operation has completed
+        # The actual undo() method has already been called to move it to redo_stack
+        # This is here for API consistency with the MainWindow code
+        pass
+
+    def redo_batch(self, batch_id: str) -> None:
+        """Mark a batch as redone (same as redo())."""
+        # This is called after the redo operation has completed
+        # The actual redo() method has already been called to move it from redo_stack to undo_stack
+        # This is here for API consistency with the MainWindow code
+        pass
+
+    def get_redoable_operations(self) -> list[UndoOperation]:
+        """Get all operations that can be redone.
+        
+        Returns:
+            List of operations from the redo stack
+        """
+        return list(self.redo_stack)
+
+    def get_redoable_batches(self) -> list[UndoBatch]:
+        """Get all redoable operations as batches (mirrors get_undoable_batches()).
+
+        Returns operations from redo_stack converted to batch format.
+        """
+        batches = []
+        
+        # Convert operations from redo_stack to batch format
+        for operation in self.redo_stack:
+            batch = UndoBatch(
+                batch_id=operation.operation_id,
+                created_at=operation.created_at,
+                events=operation.event_snapshots,
+                description=operation.description,
+                is_undone=False,
+            )
+            batches.append(batch)
+        
+        return batches
 
     def get_most_recent_batch(self) -> UndoBatch | None:
         """Get the most recent operation as a batch (backwards compatibility)."""

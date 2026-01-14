@@ -64,7 +64,7 @@ class TestModeTransitions:
 
             # Switch to UPDATE
             window._switch_mode("update")
-            assert not window.batch_selector_btn.isVisible()
+            assert window.batch_selector_btn.isVisible()
 
     def test_switch_create_to_delete_mode(self, qtbot, mock_api_with_batches, mock_config):
         """Switching from CREATE to DELETE shows batch selector."""
@@ -81,7 +81,7 @@ class TestModeTransitions:
 
             # Switch to DELETE
             window._switch_mode("delete")
-            assert not window.batch_selector_btn.isVisible()
+            assert window.batch_selector_btn.isVisible()
 
     def test_mode_buttons_toggle_correctly(self, qtbot, mock_api, mock_config):
         """Mode buttons toggle on/off correctly."""
@@ -127,12 +127,11 @@ class TestFieldPersistence:
             window._switch_mode("create")
             window.event_name.setText("My Vacation")
             window.notification_email.setText("user@example.com")
-            window.calendar_combo.setCurrentIndex(0)
 
             # Save values
             saved_event_name = window.event_name.text()
             saved_email = window.notification_email.text()
-            saved_calendar = window.calendar_combo.currentIndex()
+            saved_calendar = window._get_current_calendar()
 
             # Switch to UPDATE
             window._switch_mode("update")
@@ -140,7 +139,7 @@ class TestFieldPersistence:
             # Verify values preserved
             assert window.event_name.text() == saved_event_name
             assert window.notification_email.text() == saved_email
-            assert window.calendar_combo.currentIndex() == saved_calendar
+            assert window._get_current_calendar() == saved_calendar
 
     def test_update_to_create_preserves_form_values(self, qtbot, mock_api_with_batches, mock_config):
         """Switching UPDATE→CREATE preserves form field values."""

@@ -150,8 +150,8 @@ class BatchSelectorWidget(QWidget):
                 
                 batch_item.addChild(event_item)
             
-            # Expand batch to show events
-            self.batch_tree.expandItem(batch_item)
+            # Keep batch collapsed by default
+            self.batch_tree.collapseItem(batch_item)
     
     def _on_batch_item_clicked(self, item: QTreeWidgetItem, column: int):
         """Handle batch item selection."""

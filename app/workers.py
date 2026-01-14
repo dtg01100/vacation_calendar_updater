@@ -210,6 +210,75 @@ class UndoWorker(BaseWorker):
             self.error.emit(str(exc))
 
 
+class RedoWorker(BaseWorker):
+    """Worker to recreate a batch of previously deleted events."""
+
+    finished = Signal(list)  # List of recreated event IDs
+
+    def __init__(
+        self,
+        api: GoogleApi,
+        events: Iterable[EnhancedCreatedEvent],
+        batch_description: str = "",
+    ) -> None:
+        super().__init__(api)
+        self.events = list(events)
+        self.batch_description = batch_description
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            recreated_event_ids = []
+            skipped_events = []
+            counter = 0
+            event_names = set()
+
+            for event in self.events:
+                if self._stop_requested:
+                    self.progress.emit("Redo cancelled by user")
+                    break
+
+                try:
+                    # Recreate the event using the stored snapshots
+                    created_event = self.api.create_event(
+                        event.calendar_id,
+                        event.event_name,
+                        event.start_time,
+                        event.end_time,
+                    )
+                    recreated_event_ids.append(created_event.event_id)
+                    event_names.add(event.event_name)
+                    counter += 1
+                    self.progress.emit(
+                        f"Recreated event {created_event.event_id} ({event.event_name}) on {event.start_time.date()}"
+                    )
+                except HttpError as e:
+                    # Handle events that cannot be recreated
+                    if e.resp.status in (404, 410):
+                        skipped_events.append(event)
+                        self.progress.emit(
+                            f"Skipped event {event.event_id} ({event.event_name}) - calendar not found"
+                        )
+                    else:
+                        # Re-raise other HTTP errors
+                        raise
+
+            if counter or skipped_events:
+                # Create detailed progress message
+                event_names_str = ", ".join(sorted(event_names))
+                self.progress.emit(
+                    f"Redo complete: {counter} calendar event(s) recreated"
+                )
+                if skipped_events:
+                    self.progress.emit(
+                        f"{len(skipped_events)} event(s) could not be recreated"
+                    )
+
+            self.finished.emit(recreated_event_ids)
+        except Exception as exc:
+            self.error.emit(str(exc))
+
+
 class StartupWorker(QThread):
     """Worker thread to load user email and calendar list in background."""
 
