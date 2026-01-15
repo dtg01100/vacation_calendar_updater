@@ -21,9 +21,23 @@ echo "=== Preparing Flatpak build ==="
 rm -rf "$BUILD_DIR" "${SCRIPT_DIR}/.flatpak-builder" 2>/dev/null || true
 mkdir -p "$BUILD_DIR"
 
+echo "=== Ensuring pip generator build-only dependencies ==="
+# Use a temporary virtual environment for build-only Python deps to avoid
+# polluting the app runtime requirements. This is only used to run
+# flatpak-builder-tools' flatpak-pip-generator which requires
+# 'requirements-parser' and 'packaging'.
+PYTHON_BIN="python3"
+if ! python3 -c "import requirements" >/dev/null 2>&1; then
+	VENV_DIR="${BUILD_DIR}/.flatpak-tools-venv"
+	python3 -m venv "$VENV_DIR"
+	"${VENV_DIR}/bin/python" -m pip install --upgrade pip >/dev/null
+	"${VENV_DIR}/bin/python" -m pip install 'requirements-parser>=0.11,<1.0' 'packaging>=23.0' >/dev/null
+	PYTHON_BIN="${VENV_DIR}/bin/python"
+fi
+
 echo "=== Generating PyPI dependencies ==="
 # Generate pypi-dependencies.json using flatpak-pip-generator
-python3 "$PIP_GENERATOR" \
+"$PYTHON_BIN" "$PIP_GENERATOR" \
 	--requirements="${FLATPAK_DIR}/requirements-runtime.txt" \
 	--output="${FLATPAK_DIR}/pypi-dependencies.json"
 
