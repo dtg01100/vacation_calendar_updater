@@ -19,6 +19,7 @@ from ..validation import (
 from ..workers import EventCreationWorker, StartupWorker, UndoWorker, RedoWorker, DeleteWorker, UpdateWorker
 from .datepicker import DatePicker
 from .batch_selector import BatchSelectorDialog
+from .deleted_batch_selector import DeletedBatchSelectorDialog
 from . import dark_mode
 
 
@@ -97,6 +98,18 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         # All widgets have been styled during creation via dark_mode helpers
         pass
+
+    def _open_batch_selector(self) -> None:
+        """Open batch selector dialog to choose a batch for update/delete."""
+        dialog = BatchSelectorDialog(self.undo_manager, parent=self)
+        if dialog.exec() == QtWidgets.QDialog.Accepted:
+            batch_id = dialog.get_selected_batch_id()
+            if batch_id:
+                batch = self.undo_manager.get_batch_by_id(batch_id)
+                self.selected_batch_for_operation = batch_id
+                if batch:
+                    self.batch_summary_label.setText(batch.description)
+                    self._update_validation()
 
     def _init_services(self) -> None:
         # Load defaults immediately (non-blocking)
@@ -332,11 +345,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.redo_button.setEnabled(False)
         layout.addWidget(self.redo_button, 6, 3, 1, 1)
 
+        # Undelete button for deleted batches
+        self.undelete_button = QtWidgets.QPushButton("Restore Deleted")
+        self.undelete_button.setToolTip("Restore any of the deleted event batches")
+        self.undelete_button.clicked.connect(self._open_undelete_selector)
+        self.undelete_button.setEnabled(False)
+        layout.addWidget(self.undelete_button, 7, 0, 1, 1)
+
         # Validation status label - shows why button is disabled
         self.validation_status = QtWidgets.QLabel("")
         dark_mode.style_validation_status(self.validation_status)
         self.validation_status.setWordWrap(True)
-        layout.addWidget(self.validation_status, 7, 0, 1, 4)
+        layout.addWidget(self.validation_status, 7, 1, 1, 3)
 
         self.send_email_checkbox = QtWidgets.QCheckBox("Send notification email")
         self.send_email_checkbox.setToolTip("Send an email to the notification address when events are created")
@@ -379,6 +399,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.import_start_date.setDate(QtCore.QDate.currentDate().addMonths(-3))
         self.import_start_date.dateChanged.connect(self._update_validation)
         import_dates_layout.addWidget(self.import_start_date)
+
         import_dates_layout.addWidget(QtWidgets.QLabel("To:"))
         self.import_end_date = DatePicker()
         self.import_end_date.setDate(QtCore.QDate.currentDate().addMonths(3))
@@ -417,7 +438,6 @@ class MainWindow(QtWidgets.QMainWindow):
         import_layout.addLayout(import_select_layout)
 
         layout.addWidget(self.import_controls_frame, 9, 0, 1, 4)
-        layout.setRowStretch(9, 1)
 
         # Log area with header
         log_header_layout = QtWidgets.QHBoxLayout()
@@ -662,7 +682,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _get_current_calendar(self) -> str:
         """Get the currently selected calendar from the combo box."""
-        return self.calendar_combo.currentText() or "Primary"
+        text = self.calendar_combo.currentText()
+        return text if text else ""
 
     def _current_weekdays(self) -> dict[str, bool]:
         return {key: box.isChecked() for key, box in self.weekday_boxes.items()}
@@ -710,7 +731,6 @@ class MainWindow(QtWidgets.QMainWindow):
             validation_errors = validate_request(request)
         else:
             validation_errors = ["Complete required fields"]
-
         # Update validation status label with error messages (one per line for clarity)
         if validation_errors:
             # Show errors with bullet points on separate lines for readability
@@ -863,6 +883,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _switch_mode(self, mode: str) -> None:
         """Switch the active mode and update UI accordingly."""
+        # Ensure calendar combo is populated if we have calendar data
+        if self.calendar_names and not self.calendar_combo.isEnabled():
+            self.calendar_combo.clear()
+            self.calendar_combo.addItems(self.calendar_names)
+            self.calendar_combo.setEnabled(True)
+            if self.settings and self.settings.calendar in self.calendar_names:
+                self.calendar_combo.setCurrentText(self.settings.calendar)
+            elif self.calendar_names:
+                self.calendar_combo.setCurrentIndex(0)
+
         self.current_mode = mode
         self.selected_batch_for_operation = None  # Reset batch selection
         self.batch_summary_label.setText("")  # Clear summary
@@ -873,24 +903,23 @@ class MainWindow(QtWidgets.QMainWindow):
         self.mode_delete_btn.setChecked(mode == "delete")
         self.mode_import_btn.setChecked(mode == "import")
         
-        # Update process button label
+        # Default visibility
+        self.batch_selector_btn.setVisible(False)
+        self.batch_summary_label.setVisible(False)
+
         if mode == "create":
             self.process_button.setText("Insert Into Calendar")
-            self.batch_selector_btn.setVisible(False)
-            self.batch_summary_label.setVisible(False)
-            # Show all form fields
+            self.undelete_button.setVisible(True)
             self._set_form_fields_visible(True, True, True)
             self.import_controls_frame.setVisible(False)
-            # Provide helpful message for create mode
             self.validation_status.setText("Fill in event details and schedule, then click Insert Into Calendar")
         elif mode == "update":
             self.process_button.setText("Update Events")
             self.batch_selector_btn.setVisible(True)
             self.batch_summary_label.setVisible(True)
-            # Show all form fields
+            self.undelete_button.setVisible(True)
             self._set_form_fields_visible(True, True, True)
             self.import_controls_frame.setVisible(False)
-            # Check if any batches available
             batches = self.undo_manager.get_undoable_batches()
             if not batches:
                 self.batch_summary_label.setText("📭 No batches available. Create events first.")
@@ -901,29 +930,26 @@ class MainWindow(QtWidgets.QMainWindow):
             self.process_button.setText("Delete Events")
             self.batch_selector_btn.setVisible(True)
             self.batch_summary_label.setVisible(True)
-            # Hide most form fields for delete mode, just show batch selector
+            self.undelete_button.setVisible(True)
             self._set_form_fields_visible(False, False, False)
             self.import_controls_frame.setVisible(False)
-            # Check if any batches available
             batches = self.undo_manager.get_undoable_batches()
             if not batches:
                 self.batch_summary_label.setText("📭 No batches available. Create events first.")
                 self.validation_status.setText("Select a batch to delete")
             else:
                 self.validation_status.setText("Select a batch to delete (you can undo this action)")
-        
-
         elif mode == "import":
             self.process_button.setText("Import Selected Batches")
             self.batch_selector_btn.setVisible(False)
             self.batch_summary_label.setVisible(False)
+            self.undelete_button.setVisible(False)
             self._set_form_fields_visible(False, False, False)
             self.import_controls_frame.setVisible(True)
             self.import_status_label.setText("Idle")
             self._reset_import_list()
             self.validation_status.setText("Fetch events, then select batches to import")
-        
-        
+
         self._update_validation()
 
     def _set_form_fields_visible(self, show_name_email: bool, show_dates: bool, show_schedule: bool) -> None:
@@ -1099,7 +1125,11 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 date_range = f"\nDates: {first_date} to {last_date}"
         
-        confirmation_msg = f"Delete {event_count} event{'s' if event_count != 1 else ''} from batch:\n{batch.description}{date_range}\n\n⚠️  You can undo this action afterward."
+        confirmation_msg = (
+            f"Delete {event_count} event{'s' if event_count != 1 else ''} from batch:\n"
+            f"{batch.description}{date_range}\n\n"
+            "⚠️  You can undo this action afterward."
+        )
         
         reply = QtWidgets.QMessageBox.question(
             self,
@@ -1303,9 +1333,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _on_delete_finished(self, deleted_event_ids: list[str], batch_description: str) -> None:
         self._append_log(f"Deletion complete. Deleted {len(deleted_event_ids)} events.")
-        
+
         if self.delete_worker and hasattr(self.delete_worker, "deleted_snapshots"):
             deleted_snapshots = self.delete_worker.deleted_snapshots
+
+            # Remove the original batch from the visible undo history so it no longer appears
+            if self.selected_batch_for_operation:
+                self.undo_manager.remove_operation(self.selected_batch_for_operation)
+
+            # Record the delete in the dedicated delete stack (allows undelete)
             self.undo_manager.add_operation(
                 operation_type="delete",
                 affected_event_ids=deleted_event_ids,
@@ -1313,13 +1349,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 description=f"Deleted: {batch_description}",
             )
             self.undo_manager.save_history(str(self._app_data_dir))
-        
-        if self.selected_batch_for_operation:
-            try:
-                self.undo_manager.undo_batch(self.selected_batch_for_operation)
-            except ValueError:
-                pass
-        
+
         self._stop_thread(self.delete_thread, self.delete_worker)
         self.delete_thread = None
         self.delete_worker = None
@@ -1327,6 +1357,57 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_validation()
         self._update_undo_ui()
         self._switch_mode("create")
+
+    def _open_undelete_selector(self) -> None:
+        """Open dialog to select a deleted batch to restore."""
+        deleted_batches = self.undo_manager.get_deleted_batches()
+        if not deleted_batches:
+            QtWidgets.QMessageBox.information(self, "No Deleted Batches", "There are no deleted batches to restore.")
+            return
+        
+        dialog = DeletedBatchSelectorDialog(self.undo_manager, self)
+        if dialog.exec() == QtWidgets.QDialog.Accepted:
+            batch_id = dialog.get_selected_batch_id()
+            if batch_id:
+                self._undelete_batch(batch_id)
+
+    def _undelete_batch(self, batch_id: str) -> None:
+        """Undelete a specific deleted batch by moving it back to undo stack.
+        
+        Args:
+            batch_id: The batch ID to restore
+        """
+        # Find the operation in the delete_stack
+        operation = None
+        for op in self.undo_manager.delete_stack:
+            if op.operation_id == batch_id:
+                operation = op
+                break
+            # Also check if any event has this batch_id
+            for snapshot in getattr(op, "event_snapshots", []) or []:
+                if getattr(snapshot, "batch_id", None) == batch_id:
+                    operation = op
+                    break
+        
+        if not operation:
+            QtWidgets.QMessageBox.warning(self, "Batch Not Found", "The selected batch could not be found in delete history.")
+            return
+        
+        # Move from delete_stack to undo_stack
+        self.undo_manager.delete_stack.remove(operation)
+        # Change operation_type back to "create" since it's being restored
+        operation.operation_type = "create"
+        self.undo_manager.undo_stack.append(operation)
+        
+        # Clear redo stacks on new operation (standard UX)
+        self.undo_manager.redo_stack.clear()
+        self.undo_manager.delete_redo_stack.clear()
+        self.undo_manager.redo_stack_cleared.emit()
+        
+        # Save and update UI
+        self.undo_manager.save_history(str(self._app_data_dir))
+        self._append_log(f"Restored batch: {operation.description}")
+        self._update_undo_ui()
 
     def _on_update_progress(self, message: str) -> None:
         """Handle progress updates from update worker."""
@@ -1470,7 +1551,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.statusBar().showMessage("Ready")
         self._append_log(f"Import: found {len(batches)} batch(es)")
-        self._update_validation()
 
     def _on_import_fetch_error(self, message: str) -> None:
         self.import_fetch_in_progress = False
@@ -1479,7 +1559,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.import_status_label.setText("Error")
         self._append_log(f"Import error: {message}")
         QtWidgets.QMessageBox.critical(self, "Import Error", message)
-        self._update_validation()
 
     def _on_import_thread_finished(self) -> None:
         self.import_thread = None
@@ -1804,11 +1883,22 @@ class MainWindow(QtWidgets.QMainWindow):
             and not self._undo_running()
         )
 
+    def _update_undelete_button_state(self) -> None:
+        """Update the undelete button state based on deleted batches."""
+        deleted_batches = self.undo_manager.get_deleted_batches()
+        self.undelete_button.setEnabled(
+            len(deleted_batches) > 0
+            and not self._creation_running()
+            and not self._undo_running()
+            and not self._redo_running()
+        )
+
     def _update_undo_ui(self) -> None:
         """Update undo-related UI elements based on current undo state."""
         # Update undo and redo button states
         self._update_undo_button_state()
         self._update_redo_button_state()
+        self._update_undelete_button_state()
 
         # Update status bar undo/redo info
         stats = self.undo_manager.get_history_stats()

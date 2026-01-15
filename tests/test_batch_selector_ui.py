@@ -48,7 +48,9 @@ def create_test_batch(
             start_time=dt.datetime.combine(base_date, dt.time(9, 0)) + dt.timedelta(days=i),
             end_time=dt.datetime.combine(base_date, dt.time(17, 0)) + dt.timedelta(days=i),
             calendar_id="cal_001",
-            calendar_name="Primary",
+            created_at=created_at,
+            batch_id=batch_id,
+            request_snapshot={},
         )
         events.append(event)
     

@@ -615,7 +615,7 @@ class TestModeLayoutGeometry:
             
             window._switch_mode("delete")
 
-            # Visible in DELETE mode
+            # Visible in DELETE mode (button, not combo)
             assert window.batch_selector_btn.isVisible()
             assert window.process_button.isVisible()
             assert window.undo_button.isVisible()

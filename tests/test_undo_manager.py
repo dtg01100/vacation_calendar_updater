@@ -365,6 +365,36 @@ def test_undo_manager_auto_save_with_backup():
         assert len(current_data["undo_stack"]) == 2
 
 
+def test_delete_operations_use_separate_stack():
+    """Delete operations should be kept off the main undo stack."""
+    undo_manager = UndoManager()
+
+    deleted_events = [
+        EnhancedCreatedEvent(
+            event_id="event_del_1",
+            calendar_id="cal1",
+            event_name="To Delete",
+            start_time=dt.datetime.now(),
+            end_time=dt.datetime.now() + dt.timedelta(hours=1),
+            created_at=dt.datetime.now(),
+            batch_id="batch_del",
+            request_snapshot={},
+        )
+    ]
+
+    undo_manager.add_operation(
+        "delete",
+        [e.event_id for e in deleted_events],
+        deleted_events,
+        "Deleted batch",
+    )
+
+    assert len(undo_manager.get_deleted_operations()) == 1
+    assert len(undo_manager.get_undoable_operations()) == 0
+    stats = undo_manager.get_history_stats()
+    assert stats["undeleteable_batches"] == 1
+
+
 def test_selective_batch_undo():
     """Test that specific batches can be selected and undone independently."""
     undo_manager = UndoManager()

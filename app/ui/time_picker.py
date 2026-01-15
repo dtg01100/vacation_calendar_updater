@@ -20,8 +20,12 @@ class TimePickerDialog(QtWidgets.QDialog):
         self.setMinimumWidth(250)
         
         if initial_time is None:
-            initial_time = QtCore.QTime.currentTime()
-        
+            now = QtCore.QTime.currentTime()
+            # Round to nearest minute to keep the default selection aligned with current time
+            if now.second() > 30:
+                initial_time = now.addSecs(60 - now.second())
+            else:
+                initial_time = now.addSecs(-now.second())
         self._setup_ui(initial_time)
     
     def _setup_ui(self, initial_time: QtCore.QTime) -> None:

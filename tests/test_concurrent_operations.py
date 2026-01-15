@@ -196,4 +196,3 @@ class TestMultipleOperationPrevention:
 
             # Undo button should exist
             assert hasattr(window, "undo_button")
-            assert hasattr(window, "undo_combo")

@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt, QDate, Signal
 from PySide6.QtGui import QTextCharFormat, QColor, QFont
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QCalendarWidget, QTreeWidget,
-    QTreeWidgetItem, QLabel, QPushButton, QDialog, QDialogButtonBox
+    QTreeWidgetItem, QLabel, QPushButton, QDialog, QDialogButtonBox, QScrollArea
 )
 
 from app.validation import UndoBatch

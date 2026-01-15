@@ -9,11 +9,25 @@ from dataclasses import dataclass
 from email.mime.text import MIMEText
 from pathlib import Path
 
-import httplib2
-import rfc3339
-from googleapiclient import discovery
-from oauth2client import client, tools
-from oauth2client.file import Storage
+import pyparsing as pp
+
+# Compatibility for pyparsing>=3 where DelimitedList was renamed to delimitedList
+if not hasattr(pp, "DelimitedList") and hasattr(pp, "delimitedList"):
+    pp.DelimitedList = pp.delimitedList
+
+try:
+    import httplib2
+    import rfc3339
+    from googleapiclient import discovery
+    from oauth2client import client, tools
+    from oauth2client.file import Storage
+except ImportError:  # pragma: no cover - graceful fallback for test environments
+    httplib2 = None
+    rfc3339 = None
+    discovery = None
+    client = None
+    tools = None
+    Storage = None
 
 SCOPES = "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly"
 APPLICATION_NAME = "Vacation Calendar Tool"
@@ -28,14 +42,15 @@ class CreatedEvent:
 
 @dataclass
 class EnhancedCreatedEvent:
-    event_id: str
-    calendar_id: str
-    event_name: str
-    start_time: dt.datetime
-    end_time: dt.datetime
-    created_at: dt.datetime
-    batch_id: str
-    request_snapshot: dict
+    event_id: str = ""
+    calendar_id: str = ""
+    event_name: str = ""
+    start_time: dt.datetime | None = None
+    end_time: dt.datetime | None = None
+    created_at: dt.datetime | None = None
+    batch_id: str | None = None
+    request_snapshot: dict | None = None
+    calendar_name: str | None = None
 
 
 def resource_path(relative_path: str) -> str:
@@ -72,6 +87,10 @@ class GoogleApi:
     def ensure_connected(self) -> None:
         if self._calendar_service and self._gmail_service:
             return
+        if any(dep is None for dep in (httplib2, discovery, client, tools, Storage)):
+            raise ImportError(
+                "Google API dependencies are not installed. Please install requirements.txt to use GoogleApi."
+            )
         credentials = self._get_credentials()
         http = credentials.authorize(httplib2.Http())
         self._calendar_service = discovery.build(

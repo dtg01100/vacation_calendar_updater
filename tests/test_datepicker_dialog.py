@@ -177,7 +177,10 @@ class TestDatePickerPopup:
         date_picker._toggle_popup()
         # Popup should toggle the state
         assert calendar is not None
- method exists and runs."""
+        # In some headless environments visibility may not change; ensure no crash
+
+    def test_hide_popup_runs(self, date_picker):
+        """Test that hide popup method exists and runs."""
         calendar = date_picker.calendarWidget()
         # Just verify the method runs without error
         date_picker._hide_popup()
