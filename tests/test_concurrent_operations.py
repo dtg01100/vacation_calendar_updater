@@ -1,11 +1,13 @@
 """Tests for concurrent operation safety."""
 from __future__ import annotations
 
+import datetime as dt
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from app.ui.main_window import MainWindow
+from app.validation import ScheduleRequest
 
 
 @pytest.fixture
@@ -196,3 +198,139 @@ class TestMultipleOperationPrevention:
 
             # Undo button should exist
             assert hasattr(window, "undo_button")
+
+
+class TestThreadSafety:
+    """Thread safety and in-flight operation guards."""
+
+    class DummyThread:
+        def __init__(self, running: bool = True):
+            self.running = running
+            self.quit_called = False
+            self.wait_called = False
+
+        def isRunning(self):  # noqa: N802 - Qt style
+            return self.running
+
+        def quit(self):
+            self.quit_called = True
+            self.running = False
+
+        def wait(self, _ms):
+            self.wait_called = True
+
+    class DummyWorker:
+        def __init__(self):
+            self.stopped = False
+
+        def stop(self):
+            self.stopped = True
+
+    def _make_valid_request(self):
+        return ScheduleRequest(
+            event_name="Trip",
+            notification_email="user@example.com",
+            calendar_name="Primary",
+            start_date=dt.date(2025, 1, 1),
+            end_date=dt.date(2025, 1, 2),
+            start_time=dt.time(9, 0),
+            day_length_hours=8.0,
+            weekdays={"monday": True},
+            send_email=True,
+        )
+
+    def test_operation_in_progress_considers_threads(self, qtbot, mock_api, mock_config):
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            qtbot.addWidget(window)
+            window.show()
+
+            window.creation_thread = self.DummyThread(running=True)
+            window.undo_thread = self.DummyThread(running=False)
+            window.redo_thread = self.DummyThread(running=False)
+            window.update_thread = self.DummyThread(running=False)
+            window.delete_thread = self.DummyThread(running=False)
+
+            assert window._operation_in_progress is True
+
+            window.creation_thread.running = False
+            assert window._operation_in_progress is False
+
+    def test_process_button_disabled_when_creation_running(
+        self, qtbot, mock_api, mock_config, monkeypatch
+    ):
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+
+            request = self._make_valid_request()
+            monkeypatch.setattr(window, "_collect_request", lambda: request)
+            monkeypatch.setattr("app.ui.main_window.validate_request", lambda _r: [])
+            monkeypatch.setattr("app.ui.main_window.build_schedule", lambda _r: [1, 2, 3])
+            monkeypatch.setattr(window, "_creation_running", lambda: True)
+            window.current_mode = "create"
+
+            window._update_validation()
+
+            assert window.process_button.isEnabled() is False
+
+    def test_undo_disabled_when_undo_thread_running(
+        self, qtbot, mock_api, mock_config, monkeypatch
+    ):
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+
+            request = self._make_valid_request()
+            monkeypatch.setattr(window, "_collect_request", lambda: request)
+            monkeypatch.setattr("app.ui.main_window.validate_request", lambda _r: [])
+            monkeypatch.setattr("app.ui.main_window.build_schedule", lambda _r: [1])
+            monkeypatch.setattr(window, "_creation_running", lambda: False)
+            monkeypatch.setattr(window, "_undo_running", lambda: True)
+            window.undo_manager.can_undo = lambda: True
+            window.current_mode = "create"
+
+            window._update_validation()
+
+            assert window.undo_button.isEnabled() is False
+
+    def test_stop_all_threads_invokes_stop_and_wait(self, qtbot, mock_api, mock_config):
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            qtbot.addWidget(window)
+            window.show()
+
+            threads = [self.DummyThread(running=True) for _ in range(6)]
+            workers = [self.DummyWorker() for _ in range(6)]
+
+            (
+                window.creation_thread,
+                window.undo_thread,
+                window.redo_thread,
+                window.update_thread,
+                window.delete_thread,
+                window.import_thread,
+            ) = threads
+
+            (
+                window.creation_worker,
+                window.undo_worker,
+                window.redo_worker,
+                window.update_worker,
+                window.delete_worker,
+                window.import_worker,
+            ) = workers
+
+            window._stop_all_threads()
+
+            for thread in threads:
+                assert thread.quit_called is True
+                assert thread.wait_called is True
+            for worker in workers:
+                assert worker.stopped is True

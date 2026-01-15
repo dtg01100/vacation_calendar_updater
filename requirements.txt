@@ -22,3 +22,4 @@ uritemplate==4.1.1
 urllib3==1.26.11
 PySide6==6.10.*
 pytest==8.3.2
+pytest-cov==6.0.0

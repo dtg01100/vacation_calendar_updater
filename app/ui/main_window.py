@@ -111,6 +111,45 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.batch_summary_label.setText(batch.description)
                     self._update_validation()
 
+    def _on_batches_loaded(self, batches: list) -> None:
+        """Populate the inline batch selector when batches are available."""
+        self.batch_selector_combo.blockSignals(True)
+        self.batch_selector_combo.clear()
+
+        if not batches:
+            self.batch_selector_combo.addItem("No batches available", None)
+            self.batch_selector_combo.setEnabled(False)
+            self.batch_summary_label.setText("📭 No batches available. Create events first.")
+            self.selected_batch_for_operation = None
+        else:
+            for batch in batches:
+                description = getattr(batch, "description", "Batch")
+                batch_id = getattr(batch, "batch_id", None)
+                self.batch_selector_combo.addItem(description, batch_id)
+
+            self.batch_selector_combo.setEnabled(True)
+            # Leave nothing selected until the user chooses an entry
+            self.batch_selector_combo.setCurrentIndex(-1)
+            self.selected_batch_for_operation = None
+
+        self.batch_selector_combo.setVisible(True)
+        self.batch_selector_combo.blockSignals(False)
+        self._update_validation()
+
+    def _on_batch_combo_changed(self, index: int) -> None:
+        """Handle direct batch selection from the combo box."""
+        if index < 0:
+            self.selected_batch_for_operation = None
+            self._update_validation()
+            return
+
+        batch_id = self.batch_selector_combo.itemData(index)
+        self.selected_batch_for_operation = batch_id
+        if batch_id:
+            self.batch_summary_label.setText(self.batch_selector_combo.currentText())
+            self.batch_summary_label.setVisible(True)
+        self._update_validation()
+
     def _init_services(self) -> None:
         # Load defaults immediately (non-blocking)
         self.settings = self.config_manager.ensure_defaults(
@@ -250,6 +289,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.batch_selector_btn.clicked.connect(self._open_batch_selector)
         self.batch_selector_btn.setVisible(False)
         batch_selector_layout.addWidget(self.batch_selector_btn)
+
+        # Inline batch selector combo (used by tests and non-modal selection flows)
+        self.batch_selector_combo = QtWidgets.QComboBox()
+        self.batch_selector_combo.setPlaceholderText("Select a batch…")
+        self.batch_selector_combo.setVisible(False)
+        self.batch_selector_combo.setEnabled(False)
+        self.batch_selector_combo.currentIndexChanged.connect(self._on_batch_combo_changed)
+        batch_selector_layout.addWidget(self.batch_selector_combo)
         
         # Summary label for selected batch
         self.batch_summary_label = QtWidgets.QLabel("")
@@ -905,6 +952,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Default visibility
         self.batch_selector_btn.setVisible(False)
+        self.batch_selector_combo.setVisible(False)
         self.batch_summary_label.setVisible(False)
 
         if mode == "create":
@@ -916,6 +964,7 @@ class MainWindow(QtWidgets.QMainWindow):
         elif mode == "update":
             self.process_button.setText("Update Events")
             self.batch_selector_btn.setVisible(True)
+            self.batch_selector_combo.setVisible(True)
             self.batch_summary_label.setVisible(True)
             self.undelete_button.setVisible(True)
             self._set_form_fields_visible(True, True, True)
@@ -929,6 +978,7 @@ class MainWindow(QtWidgets.QMainWindow):
         elif mode == "delete":
             self.process_button.setText("Delete Events")
             self.batch_selector_btn.setVisible(True)
+            self.batch_selector_combo.setVisible(True)
             self.batch_summary_label.setVisible(True)
             self.undelete_button.setVisible(True)
             self._set_form_fields_visible(False, False, False)

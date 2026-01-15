@@ -224,6 +224,11 @@ class RedoWorker(BaseWorker):
         super().__init__(api)
         self.events = list(events)
         self.batch_description = batch_description
+        self._stop_requested = False
+
+    def stop(self) -> None:
+        """Request the redo operation to stop gracefully."""
+        self._stop_requested = True
 
     @Slot()
     def run(self) -> None:
