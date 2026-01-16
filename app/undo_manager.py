@@ -83,7 +83,7 @@ class UndoManager(QObject):
         }
 
         try:
-            with open(file_path, "w") as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
         except OSError as e:
             # Log error and emit signal for user notification
@@ -108,7 +108,7 @@ class UndoManager(QObject):
             return 0
 
         try:
-            with open(file_path) as f:
+            with open(file_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             version = data.get("version", 2)
@@ -530,13 +530,13 @@ class UndoManager(QObject):
                     return
             elif operation.operation_id == batch_id:
                 # Mark as undone so get_undoable_batches filters it out
-                setattr(operation, "is_undone", True)
+                operation.is_undone = True
                 self.history_changed.emit()
                 return
             else:
                 for snapshot in getattr(operation, "event_snapshots", []) or []:
                     if getattr(snapshot, "batch_id", None) == batch_id:
-                        setattr(operation, "is_undone", True)
+                        operation.is_undone = True
                         self.history_changed.emit()
                         return
 
@@ -550,14 +550,14 @@ class UndoManager(QObject):
                     return
             elif operation.operation_id == batch_id:
                 if getattr(operation, "is_undone", False):
-                    setattr(operation, "is_undone", False)
+                    operation.is_undone = False
                     self.history_changed.emit()
                     return
             else:
                 for snapshot in getattr(operation, "event_snapshots", []) or []:
                     if getattr(snapshot, "batch_id", None) == batch_id:
                         if getattr(operation, "is_undone", False):
-                            setattr(operation, "is_undone", False)
+                            operation.is_undone = False
                             self.history_changed.emit()
                         return
 
@@ -625,5 +625,3 @@ class UndoManager(QObject):
         self.operation_redone.emit(operation.operation_id)
         self.history_changed.emit()
         return operation
-
-

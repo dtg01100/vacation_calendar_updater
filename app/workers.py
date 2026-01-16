@@ -26,7 +26,7 @@ class BaseWorker(QObject):
     @Slot()
     def run(self) -> None:
         """Implement in subclass to perform the worker's task."""
-        pass
+        ...
 
     def send_notification_email(
         self, recipient: str, subject: str, body: str, *, enabled: bool
@@ -171,9 +171,14 @@ class UndoWorker(BaseWorker):
                     deleted_event_ids.append(event.event_id)
                     event_names.add(event.event_name)
                     counter += 1
-                    self.progress.emit(
-                        f"Deleted event {event.event_id} ({event.event_name}) on {event.start_time.date()}"
-                    )
+                    if event.start_time:
+                        self.progress.emit(
+                            f"Deleted event {event.event_id} ({event.event_name}) on {event.start_time.date()}"
+                        )
+                    else:
+                        self.progress.emit(
+                            f"Deleted event {event.event_id} ({event.event_name})"
+                        )
                 except HttpError as e:
                     # Handle events that no longer exist (404 or 410 status)
                     if e.resp.status in (404, 410):
@@ -189,9 +194,10 @@ class UndoWorker(BaseWorker):
 
             if counter or skipped_events:
                 # Create detailed email message
-                event_names_str = ", ".join(sorted(event_names))
                 message_text = f"{counter} calendar event(s) deleted:\n\n"
-                message_text += f"Event name(s): {event_names_str}\n"
+                if event_names:
+                    event_names_str = ", ".join(sorted(event_names))
+                    message_text += f"Event name(s): {event_names_str}\n"
                 message_text += f"Batch: {self.batch_description}\n"
                 if skipped_events:
                     message_text += f"\n{len(skipped_events)} event(s) were already deleted or not found\n"
@@ -254,9 +260,14 @@ class RedoWorker(BaseWorker):
                     recreated_event_ids.append(created_event.event_id)
                     event_names.add(event.event_name)
                     counter += 1
-                    self.progress.emit(
-                        f"Recreated event {created_event.event_id} ({event.event_name}) on {event.start_time.date()}"
-                    )
+                    if event.start_time:
+                        self.progress.emit(
+                            f"Recreated event {created_event.event_id} ({event.event_name}) on {event.start_time.date()}"
+                        )
+                    else:
+                        self.progress.emit(
+                            f"Recreated event {created_event.event_id} ({event.event_name})"
+                        )
                 except HttpError as e:
                     # Handle events that cannot be recreated
                     if e.resp.status in (404, 410):
@@ -342,9 +353,14 @@ class DeleteWorker(BaseWorker):
                     self.deleted_snapshots.append(event)  # NEW: preserve snapshot
                     event_names.add(event.event_name)
                     counter += 1
-                    self.progress.emit(
-                        f"Deleted event {event.event_id} ({event.event_name}) on {event.start_time.date()}"
-                    )
+                    if event.start_time:
+                        self.progress.emit(
+                            f"Deleted event {event.event_id} ({event.event_name}) on {event.start_time.date()}"
+                        )
+                    else:
+                        self.progress.emit(
+                            f"Deleted event {event.event_id} ({event.event_name})"
+                        )
                 except HttpError as e:
                     if e.resp.status in (404, 410):
                         skipped_events.append(event)
@@ -416,9 +432,14 @@ class UpdateWorker(BaseWorker):
                 try:
                     self.api.delete_event(basic_event)
                     deleted_count += 1
-                    self.progress.emit(
-                        f"Deleted old event {event.event_id} on {event.start_time.date()}"
-                    )
+                    if event.start_time:
+                        self.progress.emit(
+                            f"Deleted old event {event.event_id} on {event.start_time.date()}"
+                        )
+                    else:
+                        self.progress.emit(
+                            f"Deleted old event {event.event_id}"
+                        )
                 except HttpError as e:
                     if e.resp.status not in (404, 410):
                         raise

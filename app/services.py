@@ -65,7 +65,6 @@ def resource_path(relative_path: str) -> str:
 
 def compat_urlsafe_b64encode(value: str) -> str:
     return base64.urlsafe_b64encode(value.encode("utf-8")).decode("ascii")
-    return base64.urlsafe_b64encode(value)  # pragma: no cover - py2 fallback
 
 
 class GoogleApi:
