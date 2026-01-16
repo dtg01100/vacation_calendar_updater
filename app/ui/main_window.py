@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import datetime as dt
 import sys
 from pathlib import Path
-import datetime as dt
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
@@ -16,11 +16,18 @@ from ..validation import (
     parse_time,
     validate_request,
 )
-from ..workers import EventCreationWorker, StartupWorker, UndoWorker, RedoWorker, DeleteWorker, UpdateWorker
-from .datepicker import DatePicker
-from .batch_selector import BatchSelectorDialog
-from .deleted_batch_selector import DeletedBatchSelectorDialog
+from ..workers import (
+    DeleteWorker,
+    EventCreationWorker,
+    RedoWorker,
+    StartupWorker,
+    UndoWorker,
+    UpdateWorker,
+)
 from . import dark_mode
+from .batch_selector import BatchSelectorDialog
+from .datepicker import DatePicker
+from .deleted_batch_selector import DeletedBatchSelectorDialog
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -45,7 +52,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.redo_worker: RedoWorker | None = None
         self.delete_worker: DeleteWorker | None = None
         self.update_worker: UpdateWorker | None = None
-        
+
         # Mode state: 'create', 'update', or 'delete'
         self.current_mode = "create"
         self.selected_batch_for_operation: str | None = None  # batch_id for update/delete
@@ -84,11 +91,11 @@ class MainWindow(QtWidgets.QMainWindow):
         # Start background loading after all UI is built
         self.progress_bar.setVisible(True)
         self._startup_worker.start()
-        
+
         app = QtWidgets.QApplication.instance()
         if app is not None:
             app.aboutToQuit.connect(self._stop_all_threads)
-        
+
         # Apply dark mode styles
         self._apply_dark_mode_styles()
 
@@ -201,7 +208,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.calendar_combo.clear()
         self.calendar_combo.addItems(calendar_names)
         self.calendar_combo.setEnabled(True)
-        
+
         # Set current calendar from settings
         if self.settings.calendar and self.settings.calendar in calendar_names:
             self.calendar_combo.setCurrentText(self.settings.calendar)
@@ -236,43 +243,52 @@ class MainWindow(QtWidgets.QMainWindow):
         central = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         central.setLayout(layout)
- 
+
         # Row -1: Mode selector buttons at the very top
         self.mode_frame = QtWidgets.QFrame()
         dark_mode.style_mode_frame(self.mode_frame)
         mode_layout = QtWidgets.QHBoxLayout()
         mode_layout.setContentsMargins(8, 8, 8, 8)
+        mode_layout.setSpacing(12)
         self.mode_frame.setLayout(mode_layout)
-        
+
         self.mode_create_btn = QtWidgets.QPushButton("Create")
         self.mode_create_btn.setCheckable(True)
         self.mode_create_btn.setChecked(True)
-        self.mode_create_btn.setMinimumWidth(80)
+        self.mode_create_btn.setMinimumWidth(110)
+        self.mode_create_btn.setAccessibleName("Create Mode")
+        self.mode_create_btn.setToolTip("Create new vacation events")
         dark_mode.style_mode_button(self.mode_create_btn)
         self.mode_create_btn.clicked.connect(lambda: self._switch_mode("create"))
         mode_layout.addWidget(self.mode_create_btn)
-        
+
         self.mode_update_btn = QtWidgets.QPushButton("Update")
         self.mode_update_btn.setCheckable(True)
-        self.mode_update_btn.setMinimumWidth(80)
+        self.mode_update_btn.setMinimumWidth(110)
+        self.mode_update_btn.setAccessibleName("Update Mode")
+        self.mode_update_btn.setToolTip("Update existing vacation events")
         dark_mode.style_mode_button(self.mode_update_btn)
         self.mode_update_btn.clicked.connect(lambda: self._switch_mode("update"))
         mode_layout.addWidget(self.mode_update_btn)
-        
+
         self.mode_delete_btn = QtWidgets.QPushButton("Delete")
         self.mode_delete_btn.setCheckable(True)
-        self.mode_delete_btn.setMinimumWidth(80)
+        self.mode_delete_btn.setMinimumWidth(110)
+        self.mode_delete_btn.setAccessibleName("Delete Mode")
+        self.mode_delete_btn.setToolTip("Delete existing vacation events")
         dark_mode.style_mode_button(self.mode_delete_btn, is_delete=True)
         self.mode_delete_btn.clicked.connect(lambda: self._switch_mode("delete"))
         mode_layout.addWidget(self.mode_delete_btn)
-        
+
         self.mode_import_btn = QtWidgets.QPushButton("Import")
         self.mode_import_btn.setCheckable(True)
-        self.mode_import_btn.setMinimumWidth(80)
+        self.mode_import_btn.setMinimumWidth(110)
+        self.mode_import_btn.setAccessibleName("Import Mode")
+        self.mode_import_btn.setToolTip("Import existing calendar events")
         dark_mode.style_mode_button(self.mode_import_btn)
         self.mode_import_btn.clicked.connect(lambda: self._switch_mode("import"))
         mode_layout.addWidget(self.mode_import_btn)
-        
+
         mode_layout.addStretch()
         self.mode_frame.layout().addStretch()
         layout.addWidget(self.mode_frame, 0, 0, 1, 4)
@@ -283,9 +299,10 @@ class MainWindow(QtWidgets.QMainWindow):
         batch_selector_layout.setContentsMargins(0, 0, 0, 0)
         batch_selector_layout.setSpacing(4)
         batch_selector_frame.setLayout(batch_selector_layout)
-        
+
         self.batch_selector_btn = QtWidgets.QPushButton("Select Batch...")
         self.batch_selector_btn.setMaximumWidth(200)
+        self.batch_selector_btn.setAccessibleName("Batch Selector Button")
         self.batch_selector_btn.clicked.connect(self._open_batch_selector)
         self.batch_selector_btn.setVisible(False)
         batch_selector_layout.addWidget(self.batch_selector_btn)
@@ -297,7 +314,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.batch_selector_combo.setEnabled(False)
         self.batch_selector_combo.currentIndexChanged.connect(self._on_batch_combo_changed)
         batch_selector_layout.addWidget(self.batch_selector_combo)
-        
+
         # Summary label for selected batch
         self.batch_summary_label = QtWidgets.QLabel("")
         dark_mode.style_batch_summary_label(self.batch_summary_label)
@@ -305,50 +322,159 @@ class MainWindow(QtWidgets.QMainWindow):
         self.batch_summary_label.setVisible(False)
         batch_selector_layout.addWidget(self.batch_summary_label)
         batch_selector_layout.addStretch()
-        
+
         layout.addWidget(batch_selector_frame, 1, 0, 1, 4)
 
-        # Row 2
-        event_name_label = QtWidgets.QLabel("Event Name")
-        event_name_label.setToolTip("Name that will appear in your calendar")
-        layout.addWidget(event_name_label, 2, 0)
+        # Add animation support for smooth transitions
+        self.mode_animation = QtCore.QPropertyAnimation(self, b"geometry")
+        self.mode_animation.setDuration(300)
+        self.mode_animation.setEasingCurve(QtCore.QEasingCurve.InOutQuad)
+
+        # Row 2 - Event Name Section
+        event_name_group = QtWidgets.QGroupBox("Event Information")
+        event_name_layout = QtWidgets.QGridLayout()
+        event_name_group.setLayout(event_name_layout)
+
+        self.event_name_label = QtWidgets.QLabel("Event Name")
+        self.event_name_label.setToolTip("Name that will appear in your calendar")
+        event_name_layout.addWidget(self.event_name_label, 0, 0)
+
+        event_name_hbox = QtWidgets.QHBoxLayout()
+        event_name_hbox.setContentsMargins(0, 0, 0, 0)
+        event_name_hbox.setSpacing(6)
         self.event_name = QtWidgets.QLineEdit()
         self.event_name.setToolTip("Name that will appear in your calendar")
-        layout.addWidget(self.event_name, 2, 1)
+        event_name_hbox.addWidget(self.event_name)
 
-        notification_email_label = QtWidgets.QLabel("Notification Email")
-        notification_email_label.setToolTip("Email address to receive notifications about this event (optional)")
-        layout.addWidget(notification_email_label, 2, 2)
+        self.quick_copy_btn = QtWidgets.QPushButton("Copy Last")
+        self.quick_copy_btn.setMinimumWidth(85)
+        self.quick_copy_btn.setToolTip("Copy the last batch's dates, times, weekdays, and email (Ctrl+D)")
+        self.quick_copy_btn.clicked.connect(self._quick_copy_batch)
+        self.quick_copy_btn.setEnabled(False)
+        event_name_hbox.addWidget(self.quick_copy_btn)
+
+        event_name_layout.addLayout(event_name_hbox, 0, 1)
+
+        self.notification_email_label = QtWidgets.QLabel("Notification Email")
+        self.notification_email_label.setToolTip("Email address to receive notifications about this event (optional)")
+        event_name_layout.addWidget(self.notification_email_label, 1, 0)
         self.notification_email = QtWidgets.QLineEdit()
         self.notification_email.setToolTip("Email address to receive notifications about this event (optional)")
-        layout.addWidget(self.notification_email, 2, 3)
+        self.notification_email.setMinimumWidth(250)
+        event_name_layout.addWidget(self.notification_email, 1, 1)
 
-        # Row 3
-        start_date_label = QtWidgets.QLabel("Start Date")
-        start_date_label.setToolTip("First day of your vacation")
-        layout.addWidget(start_date_label, 3, 0)
+        layout.addWidget(event_name_group, 2, 0, 1, 4)
+
+        # Row 3 - Date and Time Section (combined for efficiency)
+        datetime_group = QtWidgets.QGroupBox("Date and Time Settings")
+        datetime_layout = QtWidgets.QGridLayout()
+        datetime_group.setLayout(datetime_layout)
+
+        # Start date
+        self.start_date_label = QtWidgets.QLabel("Start Date")
+        self.start_date_label.setToolTip("First day of your vacation")
+        datetime_layout.addWidget(self.start_date_label, 0, 0)
         self.start_date = DatePicker()
         self.start_date.setToolTip("First day of your vacation")
-        layout.addWidget(self.start_date, 3, 1)
+        datetime_layout.addWidget(self.start_date, 0, 1)
 
-        # Time picker spinners and preset (no separate start_time QTimeEdit to avoid modal)
-        self._build_time_picker(layout)
-
-        # Row 4
-        end_date_label = QtWidgets.QLabel("End Date")
-        end_date_label.setToolTip("Last day of your vacation (inclusive)")
-        layout.addWidget(end_date_label, 4, 0)
+        # End date
+        self.end_date_label = QtWidgets.QLabel("End Date")
+        self.end_date_label.setToolTip("Last day of your vacation (inclusive)")
+        datetime_layout.addWidget(self.end_date_label, 0, 2)
         self.end_date = DatePicker()
         self.end_date.setToolTip("Last day of your vacation (inclusive)")
-        layout.addWidget(self.end_date, 4, 1)
+        datetime_layout.addWidget(self.end_date, 0, 3)
 
-        # Day length spinners (no separate QTimeEdit to avoid modal)
+        # Time settings in the next row
+        # Time picker spinners and preset (no separate start_time QTimeEdit to avoid modal)
+        time_container = QtWidgets.QWidget()
+        time_hbox = QtWidgets.QHBoxLayout()
+        time_hbox.setContentsMargins(0, 0, 0, 0)
+        time_hbox.setSpacing(4)
+        time_container.setLayout(time_hbox)
 
-        # Row 5 Weekdays
-        self.weekday_boxes: dict[str, QtWidgets.QCheckBox] = {}
-        weekday_frame = QtWidgets.QFrame()
+        # Hour spinner
+        self.hour_spinbox = QtWidgets.QSpinBox()
+        self.hour_spinbox.setMinimum(0)
+        self.hour_spinbox.setMaximum(23)
+        self.hour_spinbox.setValue(8)
+        self.hour_spinbox.setMaximumWidth(60)
+        self.hour_spinbox.setPrefix("h: ")
+        self.hour_spinbox.setToolTip("Start hour (0-23)")
+        self.hour_spinbox.valueChanged.connect(self._on_time_spinners_changed)
+        time_hbox.addWidget(self.hour_spinbox)
+
+        # Minute spinner
+        self.minute_spinbox = QtWidgets.QSpinBox()
+        self.minute_spinbox.setMinimum(0)
+        self.minute_spinbox.setMaximum(59)
+        self.minute_spinbox.setValue(0)
+        self.minute_spinbox.setMaximumWidth(60)
+        self.minute_spinbox.setPrefix("m: ")
+        self.minute_spinbox.setToolTip("Start minute (0-59)")
+        self.minute_spinbox.valueChanged.connect(self._on_time_spinners_changed)
+        time_hbox.addWidget(self.minute_spinbox)
+
+        # Preset times dropdown
+        self.time_preset_combo = QtWidgets.QComboBox()
+        self.time_preset_combo.setMaximumWidth(110)
+        self.time_preset_combo.setToolTip("Quick select common work start times")
+        # Will be populated after settings are loaded
+        self.time_preset_combo.currentIndexChanged.connect(self._on_preset_selected)
+        time_hbox.addWidget(self.time_preset_combo)
+
+        self.start_time_label = QtWidgets.QLabel("Start Time")
+        self.start_time_label.setToolTip("Time when your work day begins")
+        datetime_layout.addWidget(self.start_time_label, 1, 0)
+        datetime_layout.addWidget(time_container, 1, 1)
+
+        # Day length spinners
+        self.day_length_label = QtWidgets.QLabel("Day Length")
+        self.day_length_label.setToolTip("How many hours/minutes you work per day")
+        datetime_layout.addWidget(self.day_length_label, 1, 2)
+
+        day_length_container = QtWidgets.QWidget()
+        day_length_hbox = QtWidgets.QHBoxLayout()
+        day_length_hbox.setContentsMargins(0, 0, 0, 0)
+        day_length_hbox.setSpacing(4)
+        day_length_container.setLayout(day_length_hbox)
+
+        # Day length hour spinner
+        self.day_length_hour_spinbox = QtWidgets.QSpinBox()
+        self.day_length_hour_spinbox.setMinimum(0)
+        self.day_length_hour_spinbox.setMaximum(23)
+        self.day_length_hour_spinbox.setValue(8)
+        self.day_length_hour_spinbox.setMaximumWidth(60)
+        self.day_length_hour_spinbox.setPrefix("h: ")
+        self.day_length_hour_spinbox.setToolTip("Work day hours (0-23)")
+        self.day_length_hour_spinbox.valueChanged.connect(self._update_validation)
+        day_length_hbox.addWidget(self.day_length_hour_spinbox)
+
+        # Day length minute spinner
+        self.day_length_minute_spinbox = QtWidgets.QSpinBox()
+        self.day_length_minute_spinbox.setMinimum(0)
+        self.day_length_minute_spinbox.setMaximum(59)
+        self.day_length_minute_spinbox.setValue(0)
+        self.day_length_minute_spinbox.setMaximumWidth(60)
+        self.day_length_minute_spinbox.setPrefix("m: ")
+        self.day_length_minute_spinbox.setToolTip("Work day minutes (0-59)")
+        self.day_length_minute_spinbox.valueChanged.connect(self._update_validation)
+        day_length_hbox.addWidget(self.day_length_minute_spinbox)
+        day_length_hbox.addStretch()
+
+        datetime_layout.addWidget(day_length_container, 1, 3)
+
+        layout.addWidget(datetime_group, 3, 0, 1, 4)
+
+        # Row 4 Weekdays
+        weekday_group = QtWidgets.QGroupBox("Weekdays")
         weekday_layout = QtWidgets.QHBoxLayout()
-        weekday_frame.setLayout(weekday_layout)
+        weekday_layout.setContentsMargins(8, 8, 8, 8)
+        weekday_layout.setSpacing(8)
+        weekday_group.setLayout(weekday_layout)
+
+        self.weekday_boxes: dict[str, QtWidgets.QCheckBox] = {}
         for key, label in (
             ("monday", "MO"),
             ("tuesday", "TU"),
@@ -362,64 +488,85 @@ class MainWindow(QtWidgets.QMainWindow):
             box.setToolTip(f"Include {label.capitalize()} in vacation period")
             self.weekday_boxes[key] = box
             weekday_layout.addWidget(box)
-        weekday_label = QtWidgets.QLabel("Weekdays")
-        weekday_label.setToolTip("Select which days of the week are part of your vacation")
-        layout.addWidget(weekday_label, 5, 0)
-        layout.addWidget(weekday_frame, 5, 1)
+
+        # Add "Weekdays only" preset button
+        self.weekday_preset_btn = QtWidgets.QPushButton("Weekdays Only")
+        self.weekday_preset_btn.setMinimumWidth(105)
+        self.weekday_preset_btn.setToolTip("Quick-select Monday through Friday")
+        self.weekday_preset_btn.clicked.connect(self._set_weekdays_only)
+        weekday_layout.addWidget(self.weekday_preset_btn)
 
         self.days_label = QtWidgets.QLabel("check settings")
         self.days_label.setToolTip("Days remaining after your vacation ends or '--' if already past")
-        layout.addWidget(self.days_label, 5, 2, 1, 2)
+        weekday_layout.addWidget(self.days_label)
+        weekday_layout.addStretch()
 
-        # Row 6 calendar select + buttons
+        layout.addWidget(weekday_group, 4, 0, 1, 4)
+
+        # Row 5 - Action Buttons and Calendar Settings (combined for efficiency)
+        # Main action group
+        action_group = QtWidgets.QGroupBox("Actions & Settings")
+        action_layout = QtWidgets.QGridLayout()
+        action_group.setLayout(action_layout)
+
+        # Process button spans multiple columns
         self.process_button = QtWidgets.QPushButton("Insert Into Calendar")
         self.process_button.setToolTip("Create vacation events in the selected calendar (Ctrl+Enter to execute)")
+        self.process_button.setAccessibleName("Process Button")
         self.process_button.clicked.connect(self._process)
         self.process_button.setMinimumHeight(32)
-        layout.addWidget(self.process_button, 6, 0, 1, 2)
+        action_layout.addWidget(self.process_button, 0, 0, 1, 2)
 
-        # Undo button for most recent batch
-        self.undo_button = QtWidgets.QPushButton("Undo Last Batch")
-        self.undo_button.setToolTip("Remove the most recently added events (Ctrl+Z)")
-        self.undo_button.clicked.connect(self._undo)
-        self.undo_button.setEnabled(False)
-        layout.addWidget(self.undo_button, 6, 2, 1, 1)
+        # Calendar settings in the same row
+        self.calendar_label = QtWidgets.QLabel("Calendar:")
+        self.calendar_label.setStyleSheet("font-weight: bold; color: #0288d1;")
+        action_layout.addWidget(self.calendar_label, 0, 2)
 
-        # Redo button for most recent undone batch
-        self.redo_button = QtWidgets.QPushButton("Redo Last Batch")
-        self.redo_button.setToolTip("Restore the most recently undone events (Ctrl+Y)")
-        self.redo_button.clicked.connect(self._redo)
-        self.redo_button.setEnabled(False)
-        layout.addWidget(self.redo_button, 6, 3, 1, 1)
-
-        # Undelete button for deleted batches
-        self.undelete_button = QtWidgets.QPushButton("Restore Deleted")
-        self.undelete_button.setToolTip("Restore any of the deleted event batches")
-        self.undelete_button.clicked.connect(self._open_undelete_selector)
-        self.undelete_button.setEnabled(False)
-        layout.addWidget(self.undelete_button, 7, 0, 1, 1)
-
-        # Validation status label - shows why button is disabled
-        self.validation_status = QtWidgets.QLabel("")
-        dark_mode.style_validation_status(self.validation_status)
-        self.validation_status.setWordWrap(True)
-        layout.addWidget(self.validation_status, 7, 1, 1, 3)
-
-        self.send_email_checkbox = QtWidgets.QCheckBox("Send notification email")
-        self.send_email_checkbox.setToolTip("Send an email to the notification address when events are created")
-        layout.addWidget(self.send_email_checkbox, 8, 0, 1, 2)
-
-        # Calendar selector
-        calendar_label = QtWidgets.QLabel("Calendar:")
-        calendar_label.setStyleSheet("font-weight: bold; color: #0288d1;")
-        layout.addWidget(calendar_label, 8, 2)
-        
         self.calendar_combo = QtWidgets.QComboBox()
         self.calendar_combo.setToolTip("Select which Google Calendar to use for events")
         self.calendar_combo.addItem("Loading...")
         self.calendar_combo.setEnabled(False)
         self.calendar_combo.currentTextChanged.connect(self._on_calendar_changed)
-        layout.addWidget(self.calendar_combo, 8, 3)
+        action_layout.addWidget(self.calendar_combo, 0, 3)
+
+        # Secondary action buttons in the next row
+        # Undo button for most recent batch
+        self.undo_button = QtWidgets.QPushButton("Undo Last Batch")
+        self.undo_button.setToolTip("Remove the most recently added events (Ctrl+Z)")
+        self.undo_button.setAccessibleName("Undo Button")
+        self.undo_button.clicked.connect(self._undo)
+        self.undo_button.setEnabled(False)
+        action_layout.addWidget(self.undo_button, 1, 0, 1, 1)
+
+        # Redo button for most recent undone batch
+        self.redo_button = QtWidgets.QPushButton("Redo Last Batch")
+        self.redo_button.setToolTip("Restore the most recently undone events (Ctrl+Y)")
+        self.redo_button.setAccessibleName("Redo Button")
+        self.redo_button.clicked.connect(self._redo)
+        self.redo_button.setEnabled(False)
+        action_layout.addWidget(self.redo_button, 1, 1, 1, 1)
+
+        # Undelete button for deleted batches
+        self.undelete_button = QtWidgets.QPushButton("Restore Deleted")
+        self.undelete_button.setToolTip("Restore any of the deleted event batches")
+        self.undelete_button.setAccessibleName("Undelete Button")
+        self.undelete_button.clicked.connect(self._open_undelete_selector)
+        self.undelete_button.setEnabled(False)
+        action_layout.addWidget(self.undelete_button, 1, 2, 1, 1)
+
+        # Send email checkbox in the same row
+        self.send_email_checkbox = QtWidgets.QCheckBox("Send email")
+        self.send_email_checkbox.setToolTip("Send an email to the notification address when events are created")
+        self.send_email_checkbox.setVisible(True)
+        action_layout.addWidget(self.send_email_checkbox, 1, 3, 1, 1)
+
+        # Validation status label - shows why button is disabled (spans all columns)
+        self.validation_status = QtWidgets.QLabel("")
+        dark_mode.style_validation_status(self.validation_status)
+        self.validation_status.setWordWrap(True)
+        action_layout.addWidget(self.validation_status, 2, 0, 1, 4)
+
+        layout.addWidget(action_group, 5, 0, 1, 4)
 
         # Import mode controls (hidden unless Import mode)
         self.import_controls_frame = QtWidgets.QFrame()
@@ -429,10 +576,10 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QSizePolicy.Policy.Expanding,
             QtWidgets.QSizePolicy.Policy.Preferred,
         )
-        self.import_controls_frame.setMinimumHeight(220)
+        self.import_controls_frame.setMinimumHeight(180)
         import_layout = QtWidgets.QVBoxLayout()
         import_layout.setContentsMargins(0, 0, 0, 0)
-        import_layout.setSpacing(6)
+        import_layout.setSpacing(4)
         self.import_controls_frame.setLayout(import_layout)
 
         import_instructions = QtWidgets.QLabel("Import existing calendar events and group them into batches. Use the date range below, fetch, then select the batches to import.")
@@ -440,7 +587,7 @@ class MainWindow(QtWidgets.QMainWindow):
         import_layout.addWidget(import_instructions)
 
         import_dates_layout = QtWidgets.QHBoxLayout()
-        import_dates_layout.setSpacing(8)
+        import_dates_layout.setSpacing(4)
         import_dates_layout.addWidget(QtWidgets.QLabel("From:"))
         self.import_start_date = DatePicker()
         self.import_start_date.setDate(QtCore.QDate.currentDate().addMonths(-3))
@@ -470,7 +617,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.import_list = QtWidgets.QListWidget()
         dark_mode.style_import_list(self.import_list)
         self.import_list.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
-        self.import_list.setMinimumHeight(180)
+        self.import_list.setMinimumHeight(120)
         self.import_list.itemChanged.connect(self._update_validation)
         import_layout.addWidget(self.import_list)
 
@@ -484,7 +631,7 @@ class MainWindow(QtWidgets.QMainWindow):
         import_select_layout.addStretch()
         import_layout.addLayout(import_select_layout)
 
-        layout.addWidget(self.import_controls_frame, 9, 0, 1, 4)
+        layout.addWidget(self.import_controls_frame, 8, 0, 1, 4)
 
         # Log area with header
         log_header_layout = QtWidgets.QHBoxLayout()
@@ -495,21 +642,21 @@ class MainWindow(QtWidgets.QMainWindow):
         clear_log_button.setToolTip("Clear all log messages")
         clear_log_button.clicked.connect(self._clear_log)
         log_header_layout.addWidget(clear_log_button)
-        
+
         log_container = QtWidgets.QWidget()
         log_container_layout = QtWidgets.QVBoxLayout()
         log_container_layout.setContentsMargins(0, 0, 0, 0)
         log_container.setLayout(log_container_layout)
-        
+
         log_container_layout.addLayout(log_header_layout)
-        
+
         self.log_box = QtWidgets.QPlainTextEdit()
         self.log_box.setReadOnly(True)
         self.log_box.setStyleSheet("background-color: #f5f5f5; color: #333; font-family: monospace; font-size: 10px;")
         self.log_box.setMaximumHeight(150)
         log_container_layout.addWidget(self.log_box)
-        
-        layout.addWidget(log_container, 10, 0, 1, 4)
+
+        layout.addWidget(log_container, 9, 0, 1, 4)
 
         self.setCentralWidget(central)
 
@@ -542,13 +689,17 @@ class MainWindow(QtWidgets.QMainWindow):
         # Set up keyboard shortcuts
         undo_shortcut = QtGui.QShortcut(QtGui.QKeySequence.Undo, self)
         undo_shortcut.activated.connect(self._undo)
-        
+
         redo_shortcut = QtGui.QShortcut(QtGui.QKeySequence.Redo, self)
         redo_shortcut.activated.connect(self._redo)
-        
+
         # Ctrl+Enter to process
         process_shortcut = QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.CTRL | QtCore.Qt.Key_Return), self)
         process_shortcut.activated.connect(self._process)
+
+        # Ctrl+D to quick-copy last batch
+        quick_copy_shortcut = QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.CTRL | QtCore.Qt.Key_D), self)
+        quick_copy_shortcut.activated.connect(self._quick_copy_batch)
 
     def _setup_status_bar(self) -> None:
         """Set up the status bar with progress indicator and permanent widgets."""
@@ -573,12 +724,33 @@ class MainWindow(QtWidgets.QMainWindow):
     def _apply_settings(self) -> None:
         self.notification_email.setText(self.settings.email_address)
         self.event_name.setText("")
-        # Set start time spinners to 08:00
-        self.hour_spinbox.setValue(8)
-        self.minute_spinbox.setValue(0)
-        # Set day length spinners to 08:00
-        self.day_length_hour_spinbox.setValue(8)
-        self.day_length_minute_spinbox.setValue(0)
+
+        # Set start time from last used value
+        try:
+            parts = self.settings.last_start_time.split(":")
+            if len(parts) == 2:
+                self.hour_spinbox.setValue(int(parts[0]))
+                self.minute_spinbox.setValue(int(parts[1]))
+            else:
+                self.hour_spinbox.setValue(8)
+                self.minute_spinbox.setValue(0)
+        except (ValueError, AttributeError):
+            self.hour_spinbox.setValue(8)
+            self.minute_spinbox.setValue(0)
+
+        # Set day length from last used value
+        try:
+            parts = self.settings.last_day_length.split(":")
+            if len(parts) == 2:
+                self.day_length_hour_spinbox.setValue(int(parts[0]))
+                self.day_length_minute_spinbox.setValue(int(parts[1]))
+            else:
+                self.day_length_hour_spinbox.setValue(8)
+                self.day_length_minute_spinbox.setValue(0)
+        except (ValueError, AttributeError):
+            self.day_length_hour_spinbox.setValue(8)
+            self.day_length_minute_spinbox.setValue(0)
+
         self.send_email_checkbox.setChecked(self.settings.send_email)
 
         for key, box in self.weekday_boxes.items():
@@ -596,6 +768,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.calendar_combo.setCurrentIndex(0)
 
         self.undo_button.setEnabled(False)
+
+        # Populate time presets from settings
+        self._populate_time_presets()
 
     def _on_date_changed(self, _qdate: QtCore.QDate) -> None:
         """Keep start/end dates in chronological order when either changes."""
@@ -625,88 +800,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 end = start
         self._update_validation()
 
-    def _build_time_picker(self, layout: QtWidgets.QGridLayout) -> None:
-        """Add spinners for hour/minute and a combobox with preset times."""
-        container = QtWidgets.QWidget()
-        hbox = QtWidgets.QHBoxLayout()
-        hbox.setContentsMargins(0, 0, 0, 0)
-        hbox.setSpacing(4)
-        container.setLayout(hbox)
-
-        # Hour spinner
-        self.hour_spinbox = QtWidgets.QSpinBox()
-        self.hour_spinbox.setMinimum(0)
-        self.hour_spinbox.setMaximum(23)
-        self.hour_spinbox.setValue(8)
-        self.hour_spinbox.setMaximumWidth(60)
-        self.hour_spinbox.setPrefix("h: ")
-        self.hour_spinbox.setToolTip("Start hour (0-23)")
-        self.hour_spinbox.valueChanged.connect(self._on_time_spinners_changed)
-        hbox.addWidget(self.hour_spinbox)
-
-        # Minute spinner
-        self.minute_spinbox = QtWidgets.QSpinBox()
-        self.minute_spinbox.setMinimum(0)
-        self.minute_spinbox.setMaximum(59)
-        self.minute_spinbox.setValue(0)
-        self.minute_spinbox.setMaximumWidth(60)
-        self.minute_spinbox.setPrefix("m: ")
-        self.minute_spinbox.setToolTip("Start minute (0-59)")
-        self.minute_spinbox.valueChanged.connect(self._on_time_spinners_changed)
-        hbox.addWidget(self.minute_spinbox)
-
-        # Preset times dropdown
-        self.time_preset_combo = QtWidgets.QComboBox()
-        self.time_preset_combo.setMaximumWidth(110)
-        self.time_preset_combo.setToolTip("Quick select common work start times")
-        self.time_preset_combo.addItem("8:00", 8 * 3600)
-        self.time_preset_combo.addItem("9:00", 9 * 3600)
-        self.time_preset_combo.addItem("12:00", 12 * 3600)
-        self.time_preset_combo.addItem("13:00", 13 * 3600)
-        self.time_preset_combo.addItem("14:00", 14 * 3600)
-        self.time_preset_combo.addItem("17:00", 17 * 3600)
-        self.time_preset_combo.currentIndexChanged.connect(self._on_preset_selected)
-        hbox.addWidget(self.time_preset_combo)
-
-        start_time_label = QtWidgets.QLabel("Start Time")
-        start_time_label.setToolTip("Time when your work day begins")
-        layout.addWidget(start_time_label, 3, 2)
-        layout.addWidget(container, 3, 3)
-
-        # Day length spinners (Row 4, Col 2-3)
-        day_length_label = QtWidgets.QLabel("Day Length")
-        day_length_label.setToolTip("How many hours/minutes you work per day")
-        layout.addWidget(day_length_label, 4, 2)
-        day_length_container = QtWidgets.QWidget()
-        day_length_hbox = QtWidgets.QHBoxLayout()
-        day_length_hbox.setContentsMargins(0, 0, 0, 0)
-        day_length_hbox.setSpacing(4)
-        day_length_container.setLayout(day_length_hbox)
-
-        # Day length hour spinner
-        self.day_length_hour_spinbox = QtWidgets.QSpinBox()
-        self.day_length_hour_spinbox.setMinimum(0)
-        self.day_length_hour_spinbox.setMaximum(23)
-        self.day_length_hour_spinbox.setValue(8)
-        self.day_length_hour_spinbox.setMaximumWidth(60)
-        self.day_length_hour_spinbox.setPrefix("h: ")
-        self.day_length_hour_spinbox.setToolTip("Work day hours (0-23)")
-        self.day_length_hour_spinbox.valueChanged.connect(self._update_validation)
-        day_length_hbox.addWidget(self.day_length_hour_spinbox)
-
-        # Day length minute spinner
-        self.day_length_minute_spinbox = QtWidgets.QSpinBox()
-        self.day_length_minute_spinbox.setMinimum(0)
-        self.day_length_minute_spinbox.setMaximum(59)
-        self.day_length_minute_spinbox.setValue(0)
-        self.day_length_minute_spinbox.setMaximumWidth(60)
-        self.day_length_minute_spinbox.setPrefix("m: ")
-        self.day_length_minute_spinbox.setToolTip("Work day minutes (0-59)")
-        self.day_length_minute_spinbox.valueChanged.connect(self._update_validation)
-        day_length_hbox.addWidget(self.day_length_minute_spinbox)
-        day_length_hbox.addStretch()
-
-        layout.addWidget(day_length_container, 4, 3)
 
     def _on_time_spinners_changed(self) -> None:
         """Update validation when time spinners change."""
@@ -811,7 +904,7 @@ class MainWindow(QtWidgets.QMainWindow):
             validation_errors = validate_request(request)
         else:
             validation_errors = ["Complete required fields"]
-        
+
         if not self.selected_batch_for_operation:
             validation_errors.append("Select a batch to update")
 
@@ -842,7 +935,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _update_validation_delete(self) -> None:
         """Validate delete mode inputs."""
         validation_errors: list[str] = []
-        
+
         if not self.selected_batch_for_operation:
             validation_errors.append("Select a batch to delete")
 
@@ -882,7 +975,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.process_button.setEnabled(False)
             return
 
-        selected = self._selected_import_batches()
+        selected = self.selected_import_batches
         if not selected:
             self.validation_status.setText("Select at least one batch to import")
             self.process_button.setEnabled(False)
@@ -908,11 +1001,18 @@ class MainWindow(QtWidgets.QMainWindow):
         current_weekdays = self._current_weekdays()
         current_send_email = self.send_email_checkbox.isChecked()
 
+        # Save current time values
+        start_time_str = f"{self.hour_spinbox.value()}:{self.minute_spinbox.value():02d}"
+        day_length_str = f"{self.day_length_hour_spinbox.value()}:{self.day_length_minute_spinbox.value():02d}"
+
         settings = Settings(
             email_address=current_email,
             calendar=current_calendar,
             weekdays=current_weekdays,
             send_email=current_send_email,
+            time_presets=self.settings.time_presets,
+            last_start_time=start_time_str,
+            last_day_length=day_length_str,
         )
         self.settings = settings
         self.config_manager.save(settings)
@@ -943,13 +1043,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.current_mode = mode
         self.selected_batch_for_operation = None  # Reset batch selection
         self.batch_summary_label.setText("")  # Clear summary
-        
+
         # Update button states
         self.mode_create_btn.setChecked(mode == "create")
         self.mode_update_btn.setChecked(mode == "update")
         self.mode_delete_btn.setChecked(mode == "delete")
         self.mode_import_btn.setChecked(mode == "import")
-        
+
         # Default visibility
         self.batch_selector_btn.setVisible(False)
         self.batch_selector_combo.setVisible(False)
@@ -958,62 +1058,126 @@ class MainWindow(QtWidgets.QMainWindow):
         if mode == "create":
             self.process_button.setText("Insert Into Calendar")
             self.undelete_button.setVisible(True)
+            self.undo_button.setVisible(True)
+            self.redo_button.setVisible(True)
             self._set_form_fields_visible(True, True, True)
+            self.weekday_preset_btn.setVisible(True)
+            self.send_email_checkbox.setVisible(True)
+            self.calendar_label.setVisible(True)
+            self.calendar_combo.setVisible(True)
+            # Reset label to default for create mode
+            self.calendar_label.setText("Calendar:")
             self.import_controls_frame.setVisible(False)
-            self.validation_status.setText("Fill in event details and schedule, then click Insert Into Calendar")
+            self.validation_status.setText("📝 Fill in event details and schedule, then click Insert Into Calendar")
+            self._show_mode_instructions("create")
         elif mode == "update":
             self.process_button.setText("Update Events")
             self.batch_selector_btn.setVisible(True)
-            self.batch_selector_combo.setVisible(True)
+            self.batch_selector_combo.setVisible(False)  # Only show button in update mode
             self.batch_summary_label.setVisible(True)
             self.undelete_button.setVisible(True)
+            self.undo_button.setVisible(True)
+            self.redo_button.setVisible(True)
             self._set_form_fields_visible(True, True, True)
+            self.weekday_preset_btn.setVisible(True)
+            self.send_email_checkbox.setVisible(True)
+            self.calendar_label.setVisible(True)
+            self.calendar_combo.setVisible(True)
+            # Reset label to default for update mode
+            self.calendar_label.setText("Calendar:")
             self.import_controls_frame.setVisible(False)
             batches = self.undo_manager.get_undoable_batches()
             if not batches:
                 self.batch_summary_label.setText("📭 No batches available. Create events first.")
-                self.validation_status.setText("Select a batch to update")
+                self.validation_status.setText("🔄 Select a batch to update")
             else:
-                self.validation_status.setText("Select a batch and modify settings, then click Update Events")
+                self.validation_status.setText("🔄 Select a batch and modify settings, then click Update Events")
+            self._show_mode_instructions("update")
         elif mode == "delete":
             self.process_button.setText("Delete Events")
             self.batch_selector_btn.setVisible(True)
-            self.batch_selector_combo.setVisible(True)
+            self.batch_selector_combo.setVisible(False)  # Only show button in delete mode
             self.batch_summary_label.setVisible(True)
             self.undelete_button.setVisible(True)
+            self.undo_button.setVisible(True)
+            self.redo_button.setVisible(True)
             self._set_form_fields_visible(False, False, False)
+            self.weekday_preset_btn.setVisible(False)
+            self.send_email_checkbox.setVisible(False)
+            self.calendar_label.setVisible(True)
+            self.calendar_combo.setVisible(True)
+            # Reset label to default for delete mode
+            self.calendar_label.setText("Calendar:")
             self.import_controls_frame.setVisible(False)
             batches = self.undo_manager.get_undoable_batches()
             if not batches:
                 self.batch_summary_label.setText("📭 No batches available. Create events first.")
-                self.validation_status.setText("Select a batch to delete")
+                self.validation_status.setText("🗑️ Select a batch to delete")
             else:
-                self.validation_status.setText("Select a batch to delete (you can undo this action)")
+                self.validation_status.setText("🗑️ Select a batch to delete (you can undo this action)")
+            self._show_mode_instructions("delete")
         elif mode == "import":
             self.process_button.setText("Import Selected Batches")
             self.batch_selector_btn.setVisible(False)
             self.batch_summary_label.setVisible(False)
             self.undelete_button.setVisible(False)
+            self.undo_button.setVisible(False)
+            self.redo_button.setVisible(False)
             self._set_form_fields_visible(False, False, False)
+            self.weekday_preset_btn.setVisible(False)
+            self.send_email_checkbox.setVisible(False)
+            # Show calendar selector for import mode to select which calendar to import from
+            self.calendar_label.setVisible(True)
+            self.calendar_combo.setVisible(True)
+            # Update label to be more descriptive for import mode
+            self.calendar_label.setText("Import From:")
             self.import_controls_frame.setVisible(True)
             self.import_status_label.setText("Idle")
             self._reset_import_list()
-            self.validation_status.setText("Fetch events, then select batches to import")
+            self.validation_status.setText("📥 Fetch events, then select batches to import")
+            self._show_mode_instructions("import")
 
         self._update_validation()
 
+        # Animate the transition
+        self._animate_mode_transition()
+
+    def _show_mode_instructions(self, mode: str) -> None:
+        """Show mode-specific instructions to guide users."""
+        instructions = {
+            "create": "📝 Create Mode: Enter event details, select dates, and click 'Insert Into Calendar'",
+            "update": "🔄 Update Mode: Select a batch, modify settings, and click 'Update Events'",
+            "delete": "🗑️ Delete Mode: Select a batch and click 'Delete Events' (undo available)",
+            "import": "📥 Import Mode: Fetch events, select batches, and click 'Import Selected Batches'"
+        }
+        self.statusBar().showMessage(instructions.get(mode, ""), 5000)
+
+    def _animate_mode_transition(self) -> None:
+        """Refresh the UI layout after mode switch to prevent redraw issues."""
+        # Simply trigger a layout update and repaint to ensure proper redraw
+        self.adjustSize()
+        self.update()
+        # Process any pending events to ensure UI is responsive
+        QtWidgets.QApplication.processEvents()
+
     def _set_form_fields_visible(self, show_name_email: bool, show_dates: bool, show_schedule: bool) -> None:
         """Show/hide form fields based on mode requirements."""
-        # Event name and email
-        for widget in [self.event_name, self.notification_email]:
-            self.event_name.setVisible(show_name_email)
-            self.notification_email.setVisible(show_name_email)
-        
-        # Dates
-        for widget in [self.start_date, self.end_date]:
-            widget.setVisible(show_dates)
-        
-        # Schedule info (times, weekdays, day length)
+        # Event name and email labels and fields
+        self.event_name_label.setVisible(show_name_email)
+        self.notification_email_label.setVisible(show_name_email)
+        self.event_name.setVisible(show_name_email)
+        self.notification_email.setVisible(show_name_email)
+        self.quick_copy_btn.setVisible(show_name_email)
+
+        # Dates labels and fields
+        self.start_date_label.setVisible(show_dates)
+        self.end_date_label.setVisible(show_dates)
+        self.start_date.setVisible(show_dates)
+        self.end_date.setVisible(show_dates)
+
+        # Schedule info labels and fields (times, weekdays, day length)
+        self.start_time_label.setVisible(show_schedule)
+        self.day_length_label.setVisible(show_schedule)
         self.hour_spinbox.setVisible(show_schedule)
         self.minute_spinbox.setVisible(show_schedule)
         self.time_preset_combo.setVisible(show_schedule)
@@ -1022,6 +1186,16 @@ class MainWindow(QtWidgets.QMainWindow):
         for box in self.weekday_boxes.values():
             box.setVisible(show_schedule)
         self.days_label.setVisible(show_schedule)
+
+        # Calendar selector visibility depends on mode
+        # For import mode, calendar should be visible but handled separately
+        if self.current_mode != "import":
+            self.calendar_label.setVisible(True)
+            self.calendar_combo.setVisible(True)
+        else:
+            # In import mode, calendar is handled by the import controls
+            self.calendar_label.setVisible(True)  # Still show for consistency
+            self.calendar_combo.setVisible(True)
 
     def _open_batch_selector(self) -> None:
         """Open the calendar-based batch selector dialog."""
@@ -1037,11 +1211,12 @@ class MainWindow(QtWidgets.QMainWindow):
                     date_range = f"{batch.events[0].start_time.date()} to {batch.events[-1].end_time.date()}" if batch.events else ""
                     summary = f"{batch.description} · {event_count} event{'s' if event_count != 1 else ''} · {date_range}"
                     self.batch_summary_label.setText(summary)
-                    
+
                     # Fill in event name from the first event in the batch
                     if batch.events and self.current_mode == "update":
                         self.event_name.setText(batch.events[0].event_name)
                 self._update_validation()
+
 
     def _process_create(self) -> None:
         if self._creation_running():
@@ -1098,16 +1273,16 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.selected_batch_for_operation:
             QtWidgets.QMessageBox.warning(self, "No batch selected", "Please select a batch to update.")
             return
-        
+
         batch = self.undo_manager.get_batch_by_id(self.selected_batch_for_operation)
         if not batch:
             QtWidgets.QMessageBox.warning(self, "Batch not found", "The selected batch could not be found.")
             return
-        
+
         if not batch.events:
             QtWidgets.QMessageBox.warning(self, "No events", "Selected batch has no events.")
             return
-        
+
         request = self._collect_request()
         if not request:
             QtWidgets.QMessageBox.warning(
@@ -1118,7 +1293,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if errors_list:
             QtWidgets.QMessageBox.warning(self, "Invalid input", "\n".join(errors_list))
             return
-        
+
         # Use calendar_id from the old events (original calendar)
         old_calendar_id = batch.events[0].calendar_id
         if not old_calendar_id:
@@ -1126,7 +1301,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self, "Calendar missing", "Original calendar ID could not be found in the batch."
             )
             return
-        
+
         self.update_thread = QtCore.QThread()
         self.update_worker = UpdateWorker(
             self.api,
@@ -1146,7 +1321,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.process_button.setEnabled(False)
         self._toggle_inputs(False)
-        
+
         # Show progress bar
         schedule = build_schedule(request)
         self._show_progress(len(schedule))
@@ -1158,12 +1333,12 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.selected_batch_for_operation:
             QtWidgets.QMessageBox.warning(self, "No batch selected", "Please select a batch to delete.")
             return
-        
+
         batch = self.undo_manager.get_batch_by_id(self.selected_batch_for_operation)
         if not batch:
             QtWidgets.QMessageBox.warning(self, "Batch not found", "The selected batch could not be found.")
             return
-        
+
         # Build detailed confirmation message with first/last event dates
         event_count = len(batch.events)
         date_range = ""
@@ -1174,13 +1349,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 date_range = f"\nDate: {first_date}"
             else:
                 date_range = f"\nDates: {first_date} to {last_date}"
-        
+
         confirmation_msg = (
             f"Delete {event_count} event{'s' if event_count != 1 else ''} from batch:\n"
             f"{batch.description}{date_range}\n\n"
             "⚠️  You can undo this action afterward."
         )
-        
+
         reply = QtWidgets.QMessageBox.question(
             self,
             "Confirm Deletion",
@@ -1189,7 +1364,7 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         if reply != QtWidgets.QMessageBox.StandardButton.Yes:
             return
-        
+
         self.delete_thread = QtCore.QThread()
         self.delete_worker = DeleteWorker(
             self.api,
@@ -1208,7 +1383,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.process_button.setEnabled(False)
         self._toggle_inputs(False)
-        
+
         # Show progress bar
         self._show_progress(len(batch.events))
 
@@ -1372,6 +1547,146 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_validation()
         self._hide_progress()
 
+    def _quick_copy_batch(self) -> None:
+        """Quick-copy the most recent batch: duplicates dates, times, weekdays, and email.
+
+        Resets the event name so user can enter a new one. Useful for creating
+        multiple vacation periods with the same settings.
+        """
+        # Get the most recent batch from undo stack
+        batches = self.undo_manager.get_undoable_batches()
+        if not batches:
+            QtWidgets.QMessageBox.information(
+                self,
+                "No Batches to Copy",
+                "Create a batch first before using Quick Copy."
+            )
+            return
+
+        # Get the first (most recent) batch
+        batch = batches[0]
+
+        # Extract dates and times from the batch
+        if batch.events:
+            first_event = batch.events[0]
+
+            # Use the request_snapshot if available (most reliable)
+            if first_event.request_snapshot:
+                snapshot = first_event.request_snapshot
+
+                # Parse start date and time
+                if "start_date" in snapshot:
+                    try:
+                        start_date = parse_date(snapshot["start_date"])
+                        self.start_date.setDate(QtCore.QDate(start_date.year, start_date.month, start_date.day))
+                    except Exception:
+                        pass
+
+                if "start_time" in snapshot:
+                    try:
+                        start_time = parse_time(snapshot["start_time"])
+                        self.hour_spinbox.setValue(start_time.hour)
+                        self.minute_spinbox.setValue(start_time.minute)
+                    except Exception:
+                        pass
+
+                # Parse end date
+                if "end_date" in snapshot:
+                    try:
+                        end_date = parse_date(snapshot["end_date"])
+                        self.end_date.setDate(QtCore.QDate(end_date.year, end_date.month, end_date.day))
+                    except Exception:
+                        pass
+
+                # Parse day length
+                if "day_length_hours" in snapshot:
+                    try:
+                        day_length = float(snapshot["day_length_hours"])
+                        hours = int(day_length)
+                        minutes = int((day_length - hours) * 60)
+                        self.day_length_hour_spinbox.setValue(hours)
+                        self.day_length_minute_spinbox.setValue(minutes)
+                    except Exception:
+                        pass
+
+                # Copy notification email
+                if snapshot.get("notification_email"):
+                    self.notification_email.setText(snapshot["notification_email"])
+
+                # Copy weekdays
+                if "weekdays" in snapshot:
+                    weekdays = snapshot["weekdays"]
+                    for key, box in self.weekday_boxes.items():
+                        box.setChecked(weekdays.get(key, False))
+            else:
+                # Fallback: extract from start_time and end_time datetime objects
+                if first_event.start_time:
+                    start_dt = first_event.start_time
+                    self.start_date.setDate(QtCore.QDate(start_dt.year, start_dt.month, start_dt.day))
+                    self.hour_spinbox.setValue(start_dt.hour)
+                    self.minute_spinbox.setValue(start_dt.minute)
+
+                if first_event.end_time:
+                    end_dt = first_event.end_time
+                    self.end_date.setDate(QtCore.QDate(end_dt.year, end_dt.month, end_dt.day))
+
+                # Try to infer weekdays from events in the batch
+                weekday_set = set()
+                for event in batch.events:
+                    if event.start_time:
+                        weekday = event.start_time.weekday()  # Python weekday: 0=Mon, 6=Sun
+                        weekday_set.add(weekday)
+
+                # Map Python weekday numbers to our keys
+                py_to_key = {
+                    0: "monday", 1: "tuesday", 2: "wednesday",
+                    3: "thursday", 4: "friday", 5: "saturday", 6: "sunday"
+                }
+
+                # Set checkboxes based on found weekdays
+                for key, box in self.weekday_boxes.items():
+                    should_check = any(py_to_key.get(d) == key for d in weekday_set)
+                    box.setChecked(should_check)
+
+        # Reset event name - user should enter a new one
+        self.event_name.setText("")
+        self.event_name.setFocus()
+
+        self._append_log("Batch settings copied. Enter a new event name to proceed.")
+        self._update_validation()
+
+    def _set_weekdays_only(self) -> None:
+        """Quick-select Monday through Friday, deselect weekends."""
+        for key, box in self.weekday_boxes.items():
+            if key in ("monday", "tuesday", "wednesday", "thursday", "friday"):
+                box.setChecked(True)
+            else:
+                box.setChecked(False)
+        self._update_validation()
+
+    def _populate_time_presets(self) -> None:
+        """Populate the time presets combo from settings."""
+        self.time_preset_combo.blockSignals(True)
+        self.time_preset_combo.clear()
+
+        presets = self.settings.time_presets or ["08:00", "09:00", "12:00", "13:00", "14:00", "17:00"]
+
+        for preset_str in presets:
+            try:
+                # Parse "HH:MM" format
+                parts = preset_str.split(":")
+                if len(parts) == 2:
+                    hours = int(parts[0])
+                    minutes = int(parts[1])
+                    seconds = hours * 3600 + minutes * 60
+                    display_text = f"{hours}:{minutes:02d}"
+                    self.time_preset_combo.addItem(display_text, seconds)
+            except (ValueError, AttributeError):
+                # Skip invalid presets
+                pass
+
+        self.time_preset_combo.blockSignals(False)
+
     def _on_delete_error(self, message: str) -> None:
         self._append_log(f"Delete error: {message}")
         QtWidgets.QMessageBox.critical(self, "Delete error", message)
@@ -1414,7 +1729,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if not deleted_batches:
             QtWidgets.QMessageBox.information(self, "No Deleted Batches", "There are no deleted batches to restore.")
             return
-        
+
         dialog = DeletedBatchSelectorDialog(self.undo_manager, self)
         if dialog.exec() == QtWidgets.QDialog.Accepted:
             batch_id = dialog.get_selected_batch_id()
@@ -1423,7 +1738,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _undelete_batch(self, batch_id: str) -> None:
         """Undelete a specific deleted batch by moving it back to undo stack.
-        
+
         Args:
             batch_id: The batch ID to restore
         """
@@ -1438,22 +1753,22 @@ class MainWindow(QtWidgets.QMainWindow):
                 if getattr(snapshot, "batch_id", None) == batch_id:
                     operation = op
                     break
-        
+
         if not operation:
             QtWidgets.QMessageBox.warning(self, "Batch Not Found", "The selected batch could not be found in delete history.")
             return
-        
+
         # Move from delete_stack to undo_stack
         self.undo_manager.delete_stack.remove(operation)
         # Change operation_type back to "create" since it's being restored
         operation.operation_type = "create"
         self.undo_manager.undo_stack.append(operation)
-        
+
         # Clear redo stacks on new operation (standard UX)
         self.undo_manager.redo_stack.clear()
         self.undo_manager.delete_redo_stack.clear()
         self.undo_manager.redo_stack_cleared.emit()
-        
+
         # Save and update UI
         self.undo_manager.save_history(str(self._app_data_dir))
         self._append_log(f"Restored batch: {operation.description}")
@@ -1484,7 +1799,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._append_log(f"Update complete. Created {len(new_events)} updated events.")
         description = f"{len(new_events)} updated events: {new_events[0].event_name if new_events else 'Unknown'}"
         combined_snapshots = old_event_snapshots + new_events
-        
+
         self.undo_manager.add_operation(
             operation_type="update",
             affected_event_ids=[e.event_id for e in new_events],
@@ -1492,7 +1807,7 @@ class MainWindow(QtWidgets.QMainWindow):
             description=description,
         )
         self.undo_manager.save_history(str(self._app_data_dir))
-        
+
         self._stop_thread(self.update_thread, self.update_worker)
         self.update_thread = None
         self.update_worker = None
@@ -1523,7 +1838,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.import_list.clear()
         self.import_status_label.setText("Idle")
 
-    def _selected_import_batches(self) -> list[dict]:
+    @property
+    def selected_import_batches(self) -> list[dict]:
         selected: list[dict] = []
         for i in range(self.import_list.count()):
             item = self.import_list.item(i)
@@ -1616,7 +1932,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _import_batches(self) -> None:
         """Import the selected batches from the already-fetched list."""
-        selected_batches = self._selected_import_batches()
+        selected_batches = self.selected_import_batches
         if not selected_batches:
             QtWidgets.QMessageBox.information(self, "No Batches Selected", "Select at least one batch to import.")
             self._update_validation()
@@ -1641,7 +1957,7 @@ class MainWindow(QtWidgets.QMainWindow):
             "You can now use Update or Delete modes to modify these events.",
         )
         self._update_validation()
-    
+
     class ImportFetchWorker(QtCore.QObject):
         finished = QtCore.Signal(list)
         error = QtCore.Signal(str)
@@ -1685,18 +2001,18 @@ class MainWindow(QtWidgets.QMainWindow):
     def _group_events_into_batches(self, items: list, calendar_id: str) -> list[dict]:
         """Group calendar events into potential batches based on name and date proximity."""
         # EnhancedCreatedEvent is already imported at module level
-        
+
         # Group events by summary (event name)
         groups: dict[str, list] = {}
-        
+
         for item in items:
             summary = item.get("summary", "Untitled Event")
             event_id = item.get("id")
-            
+
             # Parse start/end times
             start = item.get("start", {})
             end = item.get("end", {})
-            
+
             # Handle both dateTime and date (all-day) events
             if "dateTime" in start:
                 start_time = dt.datetime.fromisoformat(start["dateTime"].replace("Z", "+00:00"))
@@ -1704,14 +2020,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 start_time = dt.datetime.fromisoformat(start["date"] + "T00:00:00")
             else:
                 continue
-            
+
             if "dateTime" in end:
                 end_time = dt.datetime.fromisoformat(end["dateTime"].replace("Z", "+00:00"))
             elif "date" in end:
                 end_time = dt.datetime.fromisoformat(end["date"] + "T00:00:00")
             else:
                 continue
-            
+
             # Create EnhancedCreatedEvent
             enhanced_event = EnhancedCreatedEvent(
                 event_id=event_id,
@@ -1723,17 +2039,17 @@ class MainWindow(QtWidgets.QMainWindow):
                 batch_id="",  # Will be set when added to undo manager
                 request_snapshot=None
             )
-            
+
             if summary not in groups:
                 groups[summary] = []
             groups[summary].append(enhanced_event)
-        
+
         # Convert groups to batches
         batches = []
         for summary, events in groups.items():
             # Sort by start time
             events.sort(key=lambda e: e.start_time)
-            
+
             # Split into sub-batches if there are large gaps (>3 days)
             current_batch = []
             for event in events:
@@ -1742,7 +2058,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 else:
                     last_event = current_batch[-1]
                     gap_days = (event.start_time.date() - last_event.start_time.date()).days
-                    
+
                     if gap_days <= 3:  # Adjacent or close events
                         current_batch.append(event)
                     else:
@@ -1754,7 +2070,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 "event_count": len(current_batch)
                             })
                         current_batch = [event]
-            
+
             # Add final batch
             if current_batch:
                 batches.append({
@@ -1762,25 +2078,25 @@ class MainWindow(QtWidgets.QMainWindow):
                     "events": current_batch,
                     "event_count": len(current_batch)
                 })
-        
+
         return batches
-    
+
     def _show_batch_import_dialog(self, batches: list[dict]) -> list[dict]:
         """Show dialog for selecting which batches to import."""
         dialog = QtWidgets.QDialog(self)
         dialog.setWindowTitle("Select Batches to Import")
         dialog.setMinimumSize(600, 400)
-        
+
         layout = QtWidgets.QVBoxLayout()
         dialog.setLayout(layout)
-        
+
         label = QtWidgets.QLabel(f"Found {len(batches)} potential batch(es). Select which to import:")
         layout.addWidget(label)
-        
+
         # List widget with checkboxes
         list_widget = QtWidgets.QListWidget()
         list_widget.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
-        
+
         for i, batch in enumerate(batches):
             item = QtWidgets.QListWidgetItem(
                 f"{batch['description']} - {batch['event_count']} event(s)"
@@ -1789,9 +2105,9 @@ class MainWindow(QtWidgets.QMainWindow):
             item.setCheckState(QtCore.Qt.Checked)
             item.setData(QtCore.Qt.UserRole, i)  # Store batch index
             list_widget.addItem(item)
-        
+
         layout.addWidget(list_widget)
-        
+
         # Select/Deselect all buttons
         button_layout = QtWidgets.QHBoxLayout()
         select_all_btn = QtWidgets.QPushButton("Select All")
@@ -1799,7 +2115,7 @@ class MainWindow(QtWidgets.QMainWindow):
             lambda: [list_widget.item(i).setCheckState(QtCore.Qt.Checked) for i in range(list_widget.count())]
         )
         button_layout.addWidget(select_all_btn)
-        
+
         deselect_all_btn = QtWidgets.QPushButton("Deselect All")
         deselect_all_btn.clicked.connect(
             lambda: [list_widget.item(i).setCheckState(QtCore.Qt.Unchecked) for i in range(list_widget.count())]
@@ -1807,7 +2123,7 @@ class MainWindow(QtWidgets.QMainWindow):
         button_layout.addWidget(deselect_all_btn)
         button_layout.addStretch()
         layout.addLayout(button_layout)
-        
+
         # Dialog buttons
         button_box = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
@@ -1815,10 +2131,10 @@ class MainWindow(QtWidgets.QMainWindow):
         button_box.accepted.connect(dialog.accept)
         button_box.rejected.connect(dialog.reject)
         layout.addWidget(button_box)
-        
+
         if dialog.exec() != QtWidgets.QDialog.Accepted:
             return []
-        
+
         # Collect selected batches
         selected = []
         for i in range(list_widget.count()):
@@ -1826,7 +2142,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if item.checkState() == QtCore.Qt.Checked:
                 batch_idx = item.data(QtCore.Qt.UserRole)
                 selected.append(batches[batch_idx])
-        
+
         return selected
 
     def _reset_creation_state(self) -> None:
@@ -1950,13 +2266,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_redo_button_state()
         self._update_undelete_button_state()
 
+        # Enable quick-copy if there are undoable batches
+        batches = self.undo_manager.get_undoable_batches()
+        self.quick_copy_btn.setEnabled(len(batches) > 0)
+
         # Update status bar undo/redo info
         stats = self.undo_manager.get_history_stats()
         undoable_batches = stats["undoable_batches"]
         undoable_events = stats["undoable_events"]
         redoable_batches = stats["redoable_batches"]
         redoable_events = stats["redoable_events"]
-        
+
         undo_text = f"{undoable_batches} to undo" if undoable_batches > 0 else "0 to undo"
         redo_text = f"{redoable_batches} to redo" if redoable_batches > 0 else "0 to redo"
         self.undo_status_label.setText(f"{undo_text} · {redo_text}")
