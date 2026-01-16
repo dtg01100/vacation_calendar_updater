@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from PySide6 import QtWidgets
 
-from app.ui.main_window import MainWindow
 from app.services import EnhancedCreatedEvent
+from app.ui.main_window import MainWindow
 
 
 @pytest.fixture
@@ -34,6 +34,9 @@ def mock_config():
             "sunday": False,
         },
         send_email=True,
+        last_start_time="08:00",  # Add the missing last_start_time attribute
+        time_presets=["08:00", "09:00", "12:00", "13:00", "14:00", "17:00"],  # Add time_presets attribute
+        last_day_length="08:00",  # Add the missing last_day_length attribute
     )
     return config
 
@@ -248,7 +251,7 @@ class TestImportFlow:
             item.setData(QtCore.Qt.UserRole, i)
             window.import_list.addItem(item)
         
-        selected = window._selected_import_batches()
+        selected = window.selected_import_batches
         
         # Both batches should be selected
         assert len(selected) == 2
@@ -283,7 +286,7 @@ class TestImportFlow:
         item.setData(QtCore.Qt.UserRole, 0)
         window.import_list.addItem(item)
         
-        selected = window._selected_import_batches()
+        selected = window.selected_import_batches
         
         # Should be empty since batch is unchecked
         assert len(selected) == 0

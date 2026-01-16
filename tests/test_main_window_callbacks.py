@@ -26,6 +26,9 @@ def mock_config():
         calendar="Primary",
         weekdays={"monday": True},
         send_email=True,
+        last_start_time="08:00",  # Add the missing last_start_time attribute
+        time_presets=["08:00", "09:00", "12:00", "13:00", "14:00", "17:00"],  # Add time_presets attribute
+        last_day_length="08:00",  # Add the missing last_day_length attribute
     )
     return cfg
 
@@ -155,6 +158,6 @@ class TestImportSelection:
             item.setCheckState(QtCore.Qt.Checked if i == 0 else QtCore.Qt.Unchecked)
             window.import_list.addItem(item)
 
-        selected = window._selected_import_batches()
+        selected = window.selected_import_batches
         assert len(selected) == 1
         assert selected[0]["description"] == "A"

@@ -5,7 +5,7 @@ signal emissions, error handling, and email notifications.
 """
 
 import datetime as dt
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 import pytest
 

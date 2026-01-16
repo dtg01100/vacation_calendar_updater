@@ -2,9 +2,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-from PySide6 import QtWidgets
-
 from app.ui.main_window import MainWindow
 
 

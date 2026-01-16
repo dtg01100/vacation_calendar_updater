@@ -9,12 +9,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import datetime as dt
 
 import pytest
-from PySide6 import QtCore, QtWidgets
-from PySide6.QtCore import Qt, QDate
+from PySide6 import QtWidgets
+from PySide6.QtCore import QDate
 
 from app.services import EnhancedCreatedEvent
+from app.ui.batch_selector import BatchSelectorDialog, BatchSelectorWidget
 from app.undo_manager import UndoManager
-from app.ui.batch_selector import BatchSelectorWidget, BatchSelectorDialog
 from app.validation import UndoBatch
 
 

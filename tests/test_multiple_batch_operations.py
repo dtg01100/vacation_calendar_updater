@@ -6,9 +6,6 @@ history limit enforcement, mixed undo/redo sequences, and batch interactions.
 
 import datetime as dt
 import json
-from pathlib import Path
-
-import pytest
 
 from app.services import EnhancedCreatedEvent
 from app.undo_manager import UndoManager

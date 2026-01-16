@@ -5,15 +5,13 @@ import datetime as dt
 from unittest.mock import Mock, patch
 
 import pytest
-from PySide6.QtCore import QDate, Qt
-from PySide6.QtWidgets import QApplication
 
-from app.services import EnhancedCreatedEvent
 from app.config import ConfigManager
-from app.ui.batch_selector import BatchSelectorWidget, BatchSelectorDialog
+from app.services import EnhancedCreatedEvent
+from app.ui.batch_selector import BatchSelectorDialog, BatchSelectorWidget
+from app.ui.main_window import MainWindow
 from app.undo_manager import UndoManager
 from app.validation import UndoOperation
-from app.ui.main_window import MainWindow
 
 
 @pytest.fixture
@@ -40,6 +38,9 @@ def mock_config():
         weekdays={"monday": True, "tuesday": True, "wednesday": True,
                   "thursday": True, "friday": True, "saturday": False, "sunday": False},
         calendar="Primary",
+        last_start_time="08:00",  # Add the missing last_start_time attribute
+        time_presets=["08:00", "09:00", "12:00", "13:00", "14:00", "17:00"],  # Add time_presets attribute
+        last_day_length="08:00",  # Add the missing last_day_length attribute
     ))
     config.load_settings = Mock(return_value=config.ensure_defaults())
     config.save_settings = Mock()

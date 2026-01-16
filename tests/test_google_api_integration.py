@@ -39,7 +39,7 @@ class FakeMessages:
     def __init__(self):
         self.calls = []
 
-    def send(self, userId, body):  # noqa: N802 - external API casing
+    def send(self, userId, body):
         self.calls.append((userId, body))
         return FakeSend(self.calls)
 
@@ -51,7 +51,7 @@ class FakeUsersMessages:
     def messages(self):
         return self.messages_service
 
-    def getProfile(self, userId):  # noqa: N802 - external API casing
+    def getProfile(self, userId):
         return FakePage({"emailAddress": "user@example.com"})
 
 
@@ -82,7 +82,7 @@ class FakeEvents:
     def __init__(self):
         self.calls = []
 
-    def insert(self, calendarId, body):  # noqa: N802 - external API casing
+    def insert(self, calendarId, body):
         self.calls.append((calendarId, body))
         return FakePage({"id": "evt-123"})
 

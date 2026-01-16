@@ -4,7 +4,6 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
-from PySide6 import QtCore, QtWidgets
 
 from app.ui.main_window import MainWindow
 
@@ -34,6 +33,9 @@ def mock_config():
             "sunday": False,
         },
         send_email=True,
+        last_start_time="08:00",  # Add the missing last_start_time attribute
+        time_presets=["08:00", "09:00", "12:00", "13:00", "14:00", "17:00"],  # Add time_presets attribute
+        last_day_length="08:00",  # Add the missing last_day_length attribute
     )
     return config
 

@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import pytest
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from app.ui.datepicker import DatePicker, DATE_FORMAT
+from app.ui.datepicker import DATE_FORMAT, DatePicker
 
 
 @pytest.fixture
