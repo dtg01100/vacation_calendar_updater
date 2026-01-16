@@ -6,7 +6,7 @@ from abc import abstractmethod
 from collections.abc import Iterable
 
 from googleapiclient.errors import HttpError
-from PySide6.QtCore import QObject, QThread, Signal, Slot
+from PySide6.QtCore import QObject, QThread, Signal, Slot  # type: ignore[attr-defined]
 
 from .services import CreatedEvent, EnhancedCreatedEvent, GoogleApi
 from .validation import ScheduleRequest, build_schedule
@@ -26,7 +26,6 @@ class BaseWorker(QObject):
     @Slot()
     def run(self) -> None:
         """Implement in subclass to perform the worker's task."""
-        ...
 
     def send_notification_email(
         self, recipient: str, subject: str, body: str, *, enabled: bool
@@ -281,7 +280,6 @@ class RedoWorker(BaseWorker):
 
             if counter or skipped_events:
                 # Create detailed progress message
-                event_names_str = ", ".join(sorted(event_names))
                 self.progress.emit(
                     f"Redo complete: {counter} calendar event(s) recreated"
                 )

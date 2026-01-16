@@ -23,6 +23,7 @@ This application requires a `client_secret.json` file from Google Cloud Platform
 
 #### From Flatpak
 ```bash
+
 flatpak run com.github.dtg01100.vacation_calendar_updater
 ```
 

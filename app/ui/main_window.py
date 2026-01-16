@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
 import sys
 from pathlib import Path
@@ -104,7 +105,6 @@ class MainWindow(QtWidgets.QMainWindow):
         if not dark_mode.is_dark_mode():
             return
         # All widgets have been styled during creation via dark_mode helpers
-        pass
 
     def _open_batch_selector(self) -> None:
         """Open batch selector dialog to choose a batch for update/delete."""
@@ -167,6 +167,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.calendar_names: list[str] = []
         self.calendar_items: list[dict[str, str]] = []
         self.calendar_id_by_name: dict[str, str] = {}
+        self.import_batches: list[dict] = []
+        self.import_fetch_in_progress: bool = False
+        self.import_thread: QtCore.QThread | None = None
+        self.import_worker: QtCore.QObject | None = None
 
         # Create and configure startup worker (will be started after UI is built)
         self._startup_worker = StartupWorker(self.api)
@@ -216,7 +220,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.calendar_combo.setCurrentIndex(0)
 
         # Update calendar_names for validation
-        self.calendar_names = calendar_names
+        self.calendar_names = calendar_names  # pylint: disable=attribute-defined-outside-init
 
         # Re-apply settings to update weekday checkboxes
         self._apply_settings()
@@ -237,7 +241,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.calendar_combo.clear()
             self.calendar_combo.addItem("Primary")
             self.calendar_combo.setEnabled(True)
-            self.calendar_names = ["Primary"]
+            self.calendar_names = ["Primary"]  # pylint: disable=attribute-defined-outside-init
 
     def _build_ui(self) -> None:
         central = QtWidgets.QWidget()
@@ -659,12 +663,6 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addWidget(log_container, 9, 0, 1, 4)
 
         self.setCentralWidget(central)
-
-        # Import mode state
-        self.import_batches: list[dict] = []
-        self.import_thread: QtCore.QThread | None = None
-        self.import_worker: QtCore.QObject | None = None
-        self.import_fetch_in_progress: bool = False
 
         for widget in (
             self.event_name,
@@ -1834,7 +1832,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.config_manager.save(self.settings)
             self._update_validation()
     def _reset_import_list(self) -> None:
-        self.import_batches = []
+        self.import_batches.clear()
         self.import_list.clear()
         self.import_status_label.setText("Idle")
 
@@ -1867,7 +1865,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.import_thread and self.import_thread.isRunning():
             return
 
-        self.import_fetch_in_progress = True
+        self.import_fetch_in_progress = True  # pylint: disable=attribute-defined-outside-init
         self.import_fetch_button.setEnabled(False)
         self.process_button.setEnabled(False)
         self.import_status_label.setText("Fetching…")
@@ -1876,8 +1874,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._reset_import_list()
         self._update_validation()
 
-        self.import_thread = QtCore.QThread()
-        self.import_worker = self.ImportFetchWorker(
+        assert self.import_thread is None  # Ensure thread is not already running
+        self.import_thread = QtCore.QThread()  # pylint: disable=attribute-defined-outside-init
+        self.import_worker = self.ImportFetchWorker(  # pylint: disable=attribute-defined-outside-init
             self.api,
             calendar_id,
             start_dt,
@@ -1895,9 +1894,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.import_thread.start()
 
     def _on_import_fetch_finished(self, batches: list[dict]) -> None:
-        self.import_fetch_in_progress = False
+        self.import_fetch_in_progress = False  # pylint: disable=attribute-defined-outside-init
         self.import_fetch_button.setEnabled(True)
-        self.import_batches = batches
+        self.import_batches = batches  # pylint: disable=attribute-defined-outside-init
         self.import_list.blockSignals(True)
         self.import_list.clear()
         for i, batch in enumerate(batches):
@@ -1919,7 +1918,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._append_log(f"Import: found {len(batches)} batch(es)")
 
     def _on_import_fetch_error(self, message: str) -> None:
-        self.import_fetch_in_progress = False
+        self.import_fetch_in_progress = False  # pylint: disable=attribute-defined-outside-init
         self.import_fetch_button.setEnabled(True)
         self.statusBar().showMessage("Ready")
         self.import_status_label.setText("Error")
@@ -1927,8 +1926,8 @@ class MainWindow(QtWidgets.QMainWindow):
         QtWidgets.QMessageBox.critical(self, "Import Error", message)
 
     def _on_import_thread_finished(self) -> None:
-        self.import_thread = None
-        self.import_worker = None
+        self.import_thread = None  # pylint: disable=attribute-defined-outside-init
+        self.import_worker = None  # pylint: disable=attribute-defined-outside-init
 
     def _import_batches(self) -> None:
         """Import the selected batches from the already-fetched list."""
@@ -2273,9 +2272,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Update status bar undo/redo info
         stats = self.undo_manager.get_history_stats()
         undoable_batches = stats["undoable_batches"]
-        undoable_events = stats["undoable_events"]
         redoable_batches = stats["redoable_batches"]
-        redoable_events = stats["redoable_events"]
 
         undo_text = f"{undoable_batches} to undo" if undoable_batches > 0 else "0 to undo"
         redo_text = f"{redoable_batches} to redo" if redoable_batches > 0 else "0 to redo"
@@ -2323,10 +2320,8 @@ class MainWindow(QtWidgets.QMainWindow):
         super().closeEvent(event)
 
     def __del__(self):
-        try:
+        with contextlib.suppress(Exception):
             self._stop_all_threads()
-        except Exception:
-            pass
 
 
 def launch() -> None:

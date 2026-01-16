@@ -1,3 +1,4 @@
+
 # Ignore vendor and build directories
 ^app/_vendor/
 ^build/
