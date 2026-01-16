@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Verify delete and undelete functionality."""
 import datetime as dt
+
 from app.services import EnhancedCreatedEvent
 from app.undo_manager import UndoManager
 
