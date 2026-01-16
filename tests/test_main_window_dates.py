@@ -37,7 +37,7 @@ def qapp():
 @pytest.fixture(autouse=True)
 def _prevent_startup_worker(monkeypatch):
     """Avoid starting background threads during UI-focused tests."""
-    monkeypatch.setattr("app.ui.main_window.StartupWorker.start", lambda self: None)
+    monkeypatch.setattr("PySide6.QtCore.QThread.start", lambda self: None)
 
 
 def test_end_before_start_moves_start_back(qapp, tmp_path):

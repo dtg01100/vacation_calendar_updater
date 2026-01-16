@@ -37,10 +37,10 @@ def create_test_batch(
     """Helper to create test batches."""
     if created_at is None:
         created_at = dt.datetime.now()
-    
+
     events = []
     base_date = dt.date.today() + dt.timedelta(days=start_offset_days)
-    
+
     for i in range(event_count):
         event = EnhancedCreatedEvent(
             event_id=f"event_{i}",
@@ -53,7 +53,7 @@ def create_test_batch(
             request_snapshot={},
         )
         events.append(event)
-    
+
     return UndoBatch(
         batch_id=batch_id,
         created_at=created_at,
@@ -121,7 +121,7 @@ class TestBatchSelectorWidgetInitialization:
             if item:
                 text = item.text(i)
                 headers.append(text)
-        
+
         assert len(headers) >= 3
 
 
@@ -147,11 +147,11 @@ class TestBatchSelectorWidgetWithBatches:
         """Test displaying a single batch."""
         batch = create_test_batch(batch_id="batch_001", event_count=2)
         undo_manager.undo_stack.append(batch)
-        
+
         # Populate tree for today
         today = QDate.currentDate()
         batch_selector_widget._populate_batches_for_date(today)
-        
+
         # Should have items in tree
         item_count = batch_selector_widget.batch_tree.topLevelItemCount()
         assert item_count >= 1
@@ -162,10 +162,10 @@ class TestBatchSelectorWidgetWithBatches:
         batch2 = create_test_batch(batch_id="batch_002", event_count=2)
         undo_manager.undo_stack.append(batch1)
         undo_manager.undo_stack.append(batch2)
-        
+
         today = QDate.currentDate()
         batch_selector_widget._populate_batches_for_date(today)
-        
+
         # Should have multiple items
         item_count = batch_selector_widget.batch_tree.topLevelItemCount()
         assert item_count >= 2
@@ -174,10 +174,10 @@ class TestBatchSelectorWidgetWithBatches:
         """Test that batch items are tracked in the map."""
         batch = create_test_batch(batch_id="batch_001", event_count=1)
         undo_manager.undo_stack.append(batch)
-        
+
         today = QDate.currentDate()
         batch_selector_widget._populate_batches_for_date(today)
-        
+
         # Batch item map should have entries
         assert len(batch_selector_widget._batch_item_map) >= 0
 
@@ -185,10 +185,10 @@ class TestBatchSelectorWidgetWithBatches:
         """Test that batch item has correct text format."""
         batch = create_test_batch(batch_id="batch_001", event_count=3)
         undo_manager.undo_stack.append(batch)
-        
+
         today = QDate.currentDate()
         batch_selector_widget._populate_batches_for_date(today)
-        
+
         # Get first item
         if batch_selector_widget.batch_tree.topLevelItemCount() > 0:
             item = batch_selector_widget.batch_tree.topLevelItem(0)
@@ -200,10 +200,10 @@ class TestBatchSelectorWidgetWithBatches:
         """Test that event items are added as children of batch items."""
         batch = create_test_batch(batch_id="batch_001", event_count=2)
         undo_manager.undo_stack.append(batch)
-        
+
         today = QDate.currentDate()
         batch_selector_widget._populate_batches_for_date(today)
-        
+
         # Get batch item
         if batch_selector_widget.batch_tree.topLevelItemCount() > 0:
             batch_item = batch_selector_widget.batch_tree.topLevelItem(0)
@@ -221,14 +221,14 @@ class TestBatchSelectorWidgetDateRange:
         batch_today = create_test_batch(batch_id="today", start_offset_days=0)
         batch_5_days = create_test_batch(batch_id="5_days", start_offset_days=5)
         batch_10_days = create_test_batch(batch_id="10_days", start_offset_days=10)
-        
+
         undo_manager.undo_stack.append(batch_today)
         undo_manager.undo_stack.append(batch_5_days)
         undo_manager.undo_stack.append(batch_10_days)
-        
+
         today = QDate.currentDate()
         batch_selector_widget._populate_batches_for_date(today)
-        
+
         # Should have batches, order doesn't matter
         item_count = batch_selector_widget.batch_tree.topLevelItemCount()
         assert item_count >= 0
@@ -237,17 +237,17 @@ class TestBatchSelectorWidgetDateRange:
         """Test that tree updates when date is selected."""
         batch = create_test_batch(batch_id="batch_001", start_offset_days=0)
         undo_manager.undo_stack.append(batch)
-        
+
         # Select different dates
         today = QDate.currentDate()
         tomorrow = today.addDays(1)
-        
+
         batch_selector_widget._populate_batches_for_date(today)
         count_today = batch_selector_widget.batch_tree.topLevelItemCount()
-        
+
         batch_selector_widget._populate_batches_for_date(tomorrow)
         count_tomorrow = batch_selector_widget.batch_tree.topLevelItemCount()
-        
+
         # Both should have items (or both zero)
         assert isinstance(count_today, int)
         assert isinstance(count_tomorrow, int)
@@ -260,18 +260,18 @@ class TestBatchSelectorWidgetBatchSelection:
         """Test that batch_selected signal is emitted."""
         signal_spy = []
         batch_selector_widget.batch_selected.connect(lambda batch_id: signal_spy.append(batch_id))
-        
+
         batch = create_test_batch(batch_id="batch_001")
         undo_manager.undo_stack.append(batch)
-        
+
         today = QDate.currentDate()
         batch_selector_widget._populate_batches_for_date(today)
-        
+
         # Get and click batch item
         if batch_selector_widget.batch_tree.topLevelItemCount() > 0:
             item = batch_selector_widget.batch_tree.topLevelItem(0)
             batch_selector_widget._on_batch_item_clicked(item, 0)
-            
+
             # Signal should have been emitted
             assert len(signal_spy) >= 0
 
@@ -279,10 +279,10 @@ class TestBatchSelectorWidgetBatchSelection:
         """Test getting selected batch ID."""
         batch = create_test_batch(batch_id="batch_001")
         undo_manager.undo_stack.append(batch)
-        
+
         today = QDate.currentDate()
         batch_selector_widget._populate_batches_for_date(today)
-        
+
         selected_id = batch_selector_widget.get_selected_batch_id()
         # Should be None initially
         assert selected_id is None or isinstance(selected_id, str)
@@ -327,10 +327,10 @@ class TestBatchSelectorDialogSelection:
         """Test batch selection in dialog."""
         batch = create_test_batch(batch_id="batch_001")
         undo_manager.undo_stack.append(batch)
-        
+
         today = QDate.currentDate()
         batch_selector_dialog.selector._populate_batches_for_date(today)
-        
+
         # Simulate batch selection
         if batch_selector_dialog.selector.batch_tree.topLevelItemCount() > 0:
             item = batch_selector_dialog.selector.batch_tree.topLevelItem(0)
@@ -340,10 +340,10 @@ class TestBatchSelectorDialogSelection:
         """Test dialog accept when batch is selected."""
         batch = create_test_batch(batch_id="batch_001")
         undo_manager.undo_stack.append(batch)
-        
+
         today = QDate.currentDate()
         batch_selector_dialog.selector._populate_batches_for_date(today)
-        
+
         # Select batch
         if batch_selector_dialog.selector.batch_tree.topLevelItemCount() > 0:
             item = batch_selector_dialog.selector.batch_tree.topLevelItem(0)
@@ -362,10 +362,10 @@ class TestBatchSelectorWidgetHighlighting:
         """Test that dates with batches are highlighted."""
         batch = create_test_batch(batch_id="batch_001", event_count=2)
         undo_manager.undo_stack.append(batch)
-        
+
         # Call highlight function
         batch_selector_widget._highlight_dates_with_batches()
-        
+
         # Should not crash, calendar should exist
         assert batch_selector_widget.calendar is not None
 
@@ -373,12 +373,12 @@ class TestBatchSelectorWidgetHighlighting:
         """Test highlighting with multiple batches on different dates."""
         batch1 = create_test_batch(batch_id="batch_001", start_offset_days=0)
         batch2 = create_test_batch(batch_id="batch_002", start_offset_days=5)
-        
+
         undo_manager.undo_stack.append(batch1)
         undo_manager.undo_stack.append(batch2)
-        
+
         batch_selector_widget._highlight_dates_with_batches()
-        
+
         # Should not crash
         assert batch_selector_widget.calendar is not None
 
@@ -396,10 +396,10 @@ class TestBatchSelectorEdgeCases:
             is_undone=False
         )
         undo_manager.undo_stack.append(batch)
-        
+
         today = QDate.currentDate()
         batch_selector_widget._populate_batches_for_date(today)
-        
+
         # Should handle gracefully
         assert batch_selector_widget.batch_tree is not None
 
@@ -421,10 +421,10 @@ class TestBatchSelectorEdgeCases:
             is_undone=False
         )
         undo_manager.undo_stack.append(batch)
-        
+
         today = QDate.currentDate()
         batch_selector_widget._populate_batches_for_date(today)
-        
+
         # Should handle long names gracefully
         assert batch_selector_widget.batch_tree is not None
 
@@ -432,10 +432,10 @@ class TestBatchSelectorEdgeCases:
         """Test batch with many events."""
         batch = create_test_batch(batch_id="many_events", event_count=50)
         undo_manager.undo_stack.append(batch)
-        
+
         today = QDate.currentDate()
         batch_selector_widget._populate_batches_for_date(today)
-        
+
         # Should handle many events
         if batch_selector_widget.batch_tree.topLevelItemCount() > 0:
             item = batch_selector_widget.batch_tree.topLevelItem(0)
@@ -447,9 +447,9 @@ class TestBatchSelectorEdgeCases:
         parent = QtWidgets.QWidget()
         undo_manager = UndoManager(parent=None)
         widget = BatchSelectorWidget(undo_manager, parent=parent)
-        
+
         assert widget.parent() == parent
-        
+
         widget.deleteLater()
         parent.deleteLater()
 
@@ -458,8 +458,8 @@ class TestBatchSelectorEdgeCases:
         parent = QtWidgets.QWidget()
         undo_manager = UndoManager(parent=None)
         dialog = BatchSelectorDialog(undo_manager, parent=parent)
-        
+
         assert dialog.parent() == parent
-        
+
         dialog.deleteLater()
         parent.deleteLater()

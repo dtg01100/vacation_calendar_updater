@@ -53,7 +53,7 @@ class TestTimePickerDialogInitialization:
         """Test that default time is current time."""
         current_time = QtCore.QTime.currentTime()
         selected_time = time_picker_dialog.get_selected_time()
-        
+
         # Allow larger tolerance for test execution time
         assert abs(current_time.secsTo(selected_time)) <= 30
 
@@ -61,9 +61,9 @@ class TestTimePickerDialogInitialization:
         """Test initialization with custom initial time."""
         initial_time = QtCore.QTime(14, 30)
         dialog = TimePickerDialog(initial_time=initial_time)
-        
+
         assert dialog.get_selected_time() == initial_time
-        
+
         dialog.deleteLater()
 
     def test_hour_spinbox_exists(self, time_picker_dialog):
@@ -94,9 +94,9 @@ class TestTimePickerHourSpinbox:
         """Test that hour spinbox is initialized correctly."""
         test_time = QtCore.QTime(15, 45)
         dialog = TimePickerDialog(initial_time=test_time)
-        
+
         assert dialog.hour_spinbox.value() == 15
-        
+
         dialog.deleteLater()
 
     def test_hour_spinbox_set_value_min(self, time_picker_dialog):
@@ -144,9 +144,9 @@ class TestTimePickerMinuteSpinbox:
         """Test that minute spinbox is initialized correctly."""
         test_time = QtCore.QTime(15, 45)
         dialog = TimePickerDialog(initial_time=test_time)
-        
+
         assert dialog.minute_spinbox.value() == 45
-        
+
         dialog.deleteLater()
 
     def test_minute_spinbox_set_value_min(self, time_picker_dialog):
@@ -187,42 +187,42 @@ class TestTimePickerGetSelectedTime:
         dialog = TimePickerDialog()
         current_time = QtCore.QTime.currentTime()
         selected_time = dialog.get_selected_time()
-        
+
         # Allow larger tolerance for test execution
         assert abs(current_time.secsTo(selected_time)) <= 30
-        
+
         dialog.deleteLater()
 
     def test_get_selected_time_custom(self, qapp):
         """Test get_selected_time with custom initial time."""
         custom_time = QtCore.QTime(10, 45)
         dialog = TimePickerDialog(initial_time=custom_time)
-        
+
         selected = dialog.get_selected_time()
         assert selected.hour() == 10
         assert selected.minute() == 45
-        
+
         dialog.deleteLater()
 
     def test_get_selected_time_after_hour_change(self, time_picker_dialog):
         """Test get_selected_time after hour is changed."""
         time_picker_dialog.hour_spinbox.setValue(14)
         selected = time_picker_dialog.get_selected_time()
-        
+
         assert selected.hour() == 14
 
     def test_get_selected_time_after_minute_change(self, time_picker_dialog):
         """Test get_selected_time after minute is changed."""
         time_picker_dialog.minute_spinbox.setValue(30)
         selected = time_picker_dialog.get_selected_time()
-        
+
         assert selected.minute() == 30
 
     def test_get_selected_time_after_both_changes(self, time_picker_dialog):
         """Test get_selected_time after both hour and minute are changed."""
         time_picker_dialog.hour_spinbox.setValue(16)
         time_picker_dialog.minute_spinbox.setValue(45)
-        
+
         selected = time_picker_dialog.get_selected_time()
         assert selected.hour() == 16
         assert selected.minute() == 45
@@ -238,14 +238,14 @@ class TestTimePickerTimeDisplay:
     def test_time_display_format_after_hour_change(self, time_picker_dialog):
         """Test that time display updates when hour changes."""
         time_picker_dialog.hour_spinbox.setValue(9)
-        
+
         text = time_picker_dialog.selected_time_display.text()
         assert "09:" in text or "9:" in text
 
     def test_time_display_format_after_minute_change(self, time_picker_dialog):
         """Test that time display updates when minute changes."""
         time_picker_dialog.minute_spinbox.setValue(5)
-        
+
         text = time_picker_dialog.selected_time_display.text()
         assert ":05" in text
 
@@ -253,7 +253,7 @@ class TestTimePickerTimeDisplay:
         """Test that time display is properly formatted with padding."""
         time_picker_dialog.hour_spinbox.setValue(8)
         time_picker_dialog.minute_spinbox.setValue(5)
-        
+
         text = time_picker_dialog.selected_time_display.text()
         # Should be "08:05" format (zero-padded)
         assert "08:05" in text
@@ -266,27 +266,27 @@ class TestTimePickerEdgeCases:
         """Test midnight time."""
         midnight = QtCore.QTime(0, 0)
         dialog = TimePickerDialog(initial_time=midnight)
-        
+
         assert dialog.get_selected_time() == midnight
-        
+
         dialog.deleteLater()
 
     def test_noon(self, qapp):
         """Test noon time."""
         noon = QtCore.QTime(12, 0)
         dialog = TimePickerDialog(initial_time=noon)
-        
+
         assert dialog.get_selected_time() == noon
-        
+
         dialog.deleteLater()
 
     def test_end_of_day(self, qapp):
         """Test end of day time."""
         end_of_day = QtCore.QTime(23, 59)
         dialog = TimePickerDialog(initial_time=end_of_day)
-        
+
         assert dialog.get_selected_time() == end_of_day
-        
+
         dialog.deleteLater()
 
     def test_consecutive_changes(self, time_picker_dialog):
@@ -294,10 +294,10 @@ class TestTimePickerEdgeCases:
         time_picker_dialog.hour_spinbox.setValue(5)
         time_picker_dialog.minute_spinbox.setValue(30)
         assert time_picker_dialog.get_selected_time() == QtCore.QTime(5, 30)
-        
+
         time_picker_dialog.hour_spinbox.setValue(10)
         assert time_picker_dialog.get_selected_time() == QtCore.QTime(10, 30)
-        
+
         time_picker_dialog.minute_spinbox.setValue(45)
         assert time_picker_dialog.get_selected_time() == QtCore.QTime(10, 45)
 
@@ -305,9 +305,9 @@ class TestTimePickerEdgeCases:
         """Test initialization with parent widget."""
         parent = QtWidgets.QWidget()
         dialog = TimePickerDialog(parent=parent)
-        
+
         assert dialog.parent() == parent
-        
+
         dialog.deleteLater()
         parent.deleteLater()
 
@@ -315,7 +315,7 @@ class TestTimePickerEdgeCases:
         """Test dialog accept functionality."""
         time_picker_dialog.hour_spinbox.setValue(15)
         time_picker_dialog.minute_spinbox.setValue(30)
-        
+
         # Dialog should accept with the correct time
         selected_time = time_picker_dialog.get_selected_time()
         assert selected_time == QtCore.QTime(15, 30)
@@ -324,10 +324,10 @@ class TestTimePickerEdgeCases:
         """Test creating multiple dialog instances."""
         dialog1 = TimePickerDialog(initial_time=QtCore.QTime(10, 0))
         dialog2 = TimePickerDialog(initial_time=QtCore.QTime(15, 30))
-        
+
         assert dialog1.get_selected_time() == QtCore.QTime(10, 0)
         assert dialog2.get_selected_time() == QtCore.QTime(15, 30)
-        
+
         dialog1.deleteLater()
         dialog2.deleteLater()
 
@@ -337,7 +337,7 @@ class TestTimePickerEdgeCases:
             for minute in [0, 15, 30, 45, 59]:
                 time_picker_dialog.hour_spinbox.setValue(hour)
                 time_picker_dialog.minute_spinbox.setValue(minute)
-                
+
                 selected = time_picker_dialog.get_selected_time()
                 assert selected.hour() == hour
                 assert selected.minute() == minute

@@ -112,7 +112,7 @@ class UndoManager(QObject):
                 data = json.load(f)
 
             version = data.get("version", 2)
-            
+
             if version not in (2, 3):
                 # Only support v2/v3 formats now
                 return 0
@@ -361,10 +361,10 @@ class UndoManager(QObject):
     def get_deleted_batches(self) -> list[UndoBatch]:
         """Get delete operations as batches (for undelete UI)."""
         return self._operations_to_batches(list(self.delete_stack))
-    
+
     def get_undoable_operations(self) -> list[UndoOperation]:
         """Get all operations that can be undone (preferred API).
-        
+
         Returns:
             List of operations from the undo stack
         """
@@ -417,33 +417,33 @@ class UndoManager(QObject):
         """
         result = []
         seen_batch_ids = set()
-        
+
         # Get all visible batches (non-delete), already ordered most-recent first
         all_batches = self.get_undoable_batches()
-        
+
         for batch in all_batches:
             if batch.batch_id in seen_batch_ids:
                 continue
-                
+
             # Check if any event in this batch falls within the date range
             for event in batch.events:
                 event_date = event.start_time.date()
                 days_diff = abs((event_date - target_date).days)
-                
+
                 if days_diff <= day_range:
                     result.append(batch)
                     seen_batch_ids.add(batch.batch_id)
                     break  # Don't add batch twice
-        
+
         return result
 
     def get_recent_batches(self, limit: int = 5) -> list[UndoBatch]:
         """Get the most recent operations as batches (backwards compatibility).
-        
+
         Returns recent operations from undo_stack converted to batch format.
         """
         batches = []
-        
+
         # Convert recent operations from undo_stack (non-delete)
         for operation in [op for op in self.undo_stack if isinstance(op, UndoOperation) and op.operation_type != "delete"][-limit:]:
             batch = UndoBatch(
@@ -454,7 +454,7 @@ class UndoManager(QObject):
                 is_undone=False,
             )
             batches.append(batch)
-        
+
         return batches
 
     def get_batch_by_id(self, batch_id: str) -> UndoBatch | None:
@@ -482,13 +482,13 @@ class UndoManager(QObject):
             if isinstance(operation, UndoBatch) and operation.batch_id == batch_id and not getattr(operation, "is_undone", False):
                 return operation
         return None
-    
+
     def get_operation_by_id(self, operation_id: str) -> UndoOperation | None:
         """Get a specific operation by ID (preferred API).
-        
+
         Args:
             operation_id: The operation ID to search for
-            
+
         Returns:
             The operation if found, None otherwise
         """
@@ -563,7 +563,7 @@ class UndoManager(QObject):
 
     def get_redoable_operations(self) -> list[UndoOperation]:
         """Get all operations that can be redone.
-        
+
         Returns:
             List of operations from the redo stack
         """
@@ -579,7 +579,7 @@ class UndoManager(QObject):
         Returns operations from redo_stack converted to batch format.
         """
         batches = []
-        
+
         # Convert operations from redo_stack to batch format
         for operation in self.redo_stack:
             batch = UndoBatch(
@@ -590,7 +590,7 @@ class UndoManager(QObject):
                 is_undone=False,
             )
             batches.append(batch)
-        
+
         return batches
 
     def get_most_recent_batch(self) -> UndoBatch | None:

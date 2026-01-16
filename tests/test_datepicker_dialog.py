@@ -173,7 +173,6 @@ class TestDatePickerPopup:
         # Test the toggle functionality without relying on show/hide
         # which may behave differently in headless environments
         calendar = date_picker.calendarWidget()
-        initial_state = calendar.isVisible()
         date_picker._toggle_popup()
         # Popup should toggle the state
         assert calendar is not None
@@ -217,7 +216,7 @@ class TestDatePickerKeyboardShortcuts:
         """Test Ctrl+PgUp shortcut decrements month."""
         initial_date = date_picker.date()
         initial_month = initial_date.month()
-        
+
         date_picker._step_months(-1)
         assert date_picker.date().month() == (initial_month - 1 if initial_month > 1 else 12)
 
@@ -225,7 +224,7 @@ class TestDatePickerKeyboardShortcuts:
         """Test Ctrl+PgDown shortcut increments month."""
         initial_date = date_picker.date()
         initial_month = initial_date.month()
-        
+
         date_picker._step_months(1)
         assert date_picker.date().month() == (initial_month + 1 if initial_month < 12 else 1)
 
@@ -272,23 +271,23 @@ class TestDatePickerEdgeCases:
     def test_consecutive_navigation(self, date_picker):
         """Test consecutive navigation commands."""
         initial_date = date_picker.date()
-        
+
         # Move forward and backward
         date_picker._select_delta_days(5)
         date_picker._select_delta_days(-3)
         date_picker._select_delta_days(1)
-        
+
         expected = initial_date.addDays(3)
         assert date_picker.date() == expected
 
     def test_mixed_navigation(self, date_picker):
         """Test mixed navigation (days, months, years)."""
         initial_date = date_picker.date()
-        
+
         date_picker._select_delta_days(5)
         date_picker._step_months(2)
         date_picker._step_years(1)
-        
+
         expected = initial_date.addDays(5).addMonths(2).addYears(1)
         assert date_picker.date() == expected
 
@@ -296,7 +295,7 @@ class TestDatePickerEdgeCases:
         """Test that date is displayed in correct format."""
         test_date = QtCore.QDate(2023, 5, 15)
         date_picker.setDate(test_date)
-        
+
         # The text should be in yyyy-MM-dd format
         text = date_picker.text()
         assert text == "2023-05-15"
@@ -304,10 +303,10 @@ class TestDatePickerEdgeCases:
     def test_date_range_operations(self, date_picker):
         """Test date operations across year boundaries."""
         date_picker.setDate(QtCore.QDate(2020, 12, 25))
-        
+
         # Add days that cross year boundary
         date_picker._select_delta_days(10)
-        
+
         assert date_picker.date().year() == 2021
         assert date_picker.date().month() == 1
         assert date_picker.date().day() == 4

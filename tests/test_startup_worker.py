@@ -7,6 +7,7 @@ error handling, and signal emissions.
 from unittest.mock import MagicMock
 
 import pytest
+from PySide6 import QtCore
 
 from app.workers import StartupWorker
 
@@ -39,11 +40,12 @@ class TestStartupWorkerInit:
         assert hasattr(worker, "finished")
         assert hasattr(worker, "error")
 
-    def test_is_qthread(self, mock_api):
-        """Test worker inherits from QThread."""
+    def test_is_qobject(self, mock_api):
+        """Test worker inherits from QObject (for moveToThread pattern)."""
         worker = StartupWorker(mock_api)
-        # StartupWorker inherits from QThread, not BaseWorker
-        assert hasattr(worker, "start")  # QThread method
+        assert isinstance(worker, QtCore.QObject)
+        assert hasattr(worker, "run")  # Worker method
+        assert not hasattr(worker, "start")  # QThread method (not present on QObject)
 
 
 class TestStartupWorkerExecution:
@@ -59,7 +61,7 @@ class TestStartupWorkerExecution:
         worker.run()
 
         assert len(result) == 1
-        user_email, calendar_data = result[0]
+        user_email, _ = result[0]
         assert user_email == "user@example.com"
 
     def test_loads_calendar_list(self, mock_api):
@@ -72,7 +74,7 @@ class TestStartupWorkerExecution:
         worker.run()
 
         assert len(result) == 1
-        user_email, (calendar_names, calendar_items) = result[0]
+        _, (calendar_names, calendar_items) = result[0]
         assert calendar_names == ["Calendar 1", "Calendar 2"]
         assert len(calendar_items) == 2
         assert calendar_items[0]["id"] == "cal1"
@@ -154,7 +156,7 @@ class TestStartupWorkerEdgeCases:
 
         worker.run()
 
-        user_email, (calendar_names, calendar_items) = result[0]
+        _, (calendar_names, calendar_items) = result[0]
         assert calendar_names == []
         assert calendar_items == []
 
@@ -171,7 +173,7 @@ class TestStartupWorkerEdgeCases:
 
         worker.run()
 
-        user_email, (calendar_names, calendar_items) = result[0]
+        _, (calendar_names, calendar_items) = result[0]
         assert len(calendar_names) == 100
         assert len(calendar_items) == 100
 
@@ -202,5 +204,5 @@ class TestStartupWorkerEdgeCases:
 
         worker.run()
 
-        user_email, (calendar_names, calendar_items) = result[0]
+        _, (calendar_names, _) = result[0]
         assert calendar_names == special_names

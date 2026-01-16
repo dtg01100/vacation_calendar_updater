@@ -91,7 +91,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_undo_ui()
         # Start background loading after all UI is built
         self.progress_bar.setVisible(True)
-        self._startup_worker.start()
+        self._startup_thread.start()
 
         app = QtWidgets.QApplication.instance()
         if app is not None:
@@ -174,8 +174,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Create and configure startup worker (will be started after UI is built)
         self._startup_worker = StartupWorker(self.api)
+        self._startup_thread = QtCore.QThread()
+        self._startup_worker.moveToThread(self._startup_thread)
+        self._startup_thread.started.connect(self._startup_worker.run)
         self._startup_worker.finished.connect(self._on_startup_finished)
         self._startup_worker.error.connect(self._on_startup_error)
+        self._startup_worker.finished.connect(self._startup_thread.quit)
+        self._startup_thread.finished.connect(self._startup_thread.deleteLater)
 
     def _start_loading(self) -> None:
         """Start the loading process after UI is fully initialized."""

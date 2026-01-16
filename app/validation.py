@@ -59,6 +59,20 @@ class ScheduleRequest:
     send_email: bool = True
 
 
+def _event_to_dict(event) -> dict:
+    """Convert EnhancedCreatedEvent to dictionary"""
+    return {
+        "event_id": event.event_id,
+        "calendar_id": event.calendar_id,
+        "event_name": event.event_name,
+        "start_time": event.start_time.isoformat(),
+        "end_time": event.end_time.isoformat(),
+        "created_at": event.created_at.isoformat(),
+        "batch_id": event.batch_id,
+        "request_snapshot": event.request_snapshot,
+    }
+
+
 @dataclass
 class UndoOperation:
     """Represents a single undoable operation (create, update, or delete)."""
@@ -77,24 +91,10 @@ class UndoOperation:
             "operation_type": self.operation_type,
             "affected_event_ids": self.affected_event_ids,
             "event_snapshots": [
-                self._event_to_dict(event) for event in self.event_snapshots
+                _event_to_dict(event) for event in self.event_snapshots
             ],
             "created_at": self.created_at.isoformat(),
             "description": self.description,
-        }
-
-    @staticmethod
-    def _event_to_dict(event) -> dict:
-        """Convert EnhancedCreatedEvent to dictionary"""
-        return {
-            "event_id": event.event_id,
-            "calendar_id": event.calendar_id,
-            "event_name": event.event_name,
-            "start_time": event.start_time.isoformat(),
-            "end_time": event.end_time.isoformat(),
-            "created_at": event.created_at.isoformat(),
-            "batch_id": event.batch_id,
-            "request_snapshot": event.request_snapshot,
         }
 
     @staticmethod
@@ -139,23 +139,9 @@ class UndoBatch:
         return {
             "batch_id": self.batch_id,
             "created_at": self.created_at.isoformat(),
-            "events": [self._event_to_dict(event) for event in self.events],
+            "events": [_event_to_dict(event) for event in self.events],
             "description": self.description,
             "is_undone": self.is_undone,
-        }
-
-    @staticmethod
-    def _event_to_dict(event) -> dict:
-        """Convert EnhancedCreatedEvent to dictionary"""
-        return {
-            "event_id": event.event_id,
-            "calendar_id": event.calendar_id,
-            "event_name": event.event_name,
-            "start_time": event.start_time.isoformat(),
-            "end_time": event.end_time.isoformat(),
-            "created_at": event.created_at.isoformat(),
-            "batch_id": event.batch_id,
-            "request_snapshot": event.request_snapshot,
         }
 
     @staticmethod

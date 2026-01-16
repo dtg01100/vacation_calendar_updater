@@ -22,59 +22,59 @@ def qapp():
 
 class QtBot:
     """Simple QtBot replacement for testing without pytest-qt plugin."""
-    
+
     def __init__(self, qapp):
         self.qapp = qapp
         self.widgets = []
-    
+
     def addWidget(self, widget):
         """Track a widget for cleanup."""
         self.widgets.append(widget)
         return widget
-    
+
     def waitSignal(self, signal, timeout=1000):
         """Wait for a signal to be emitted."""
         from PySide6.QtCore import QEventLoop, QTimer
-        
+
         loop = QEventLoop()
         timer = QTimer()
         timer.setSingleShot(True)
         timer.timeout.connect(loop.quit)
         timer.start(timeout)
-        
+
         class SignalWaiter:
             def __init__(self):
                 self.args = None
                 self.called = False
-            
+
             def __enter__(self):
                 signal.connect(self._on_signal)
                 return self
-            
+
             def __exit__(self, *args):
                 try:
                     signal.disconnect(self._on_signal)
-                except:
+                except Exception:
                     pass
                 timer.stop()
                 loop.quit()
-            
+
             def _on_signal(self, *args):
                 self.args = args
                 self.called = True
                 timer.stop()
                 loop.quit()
-        
+
         waiter = SignalWaiter()
         waiter.__enter__()
         return waiter
-    
+
     def cleanup(self):
         """Clean up all tracked widgets."""
         for widget in self.widgets:
             try:
                 widget.deleteLater()
-            except:
+            except Exception:
                 pass
         self.widgets.clear()
 

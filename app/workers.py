@@ -6,21 +6,30 @@ from abc import abstractmethod
 from collections.abc import Iterable
 
 from googleapiclient.errors import HttpError
-from PySide6.QtCore import QObject, QThread, Signal, Slot  # type: ignore[attr-defined]
+from PySide6.QtCore import QObject, Signal, Slot  # type: ignore[attr-defined]
 
 from .services import CreatedEvent, EnhancedCreatedEvent, GoogleApi
 from .validation import ScheduleRequest, build_schedule
 
 
 class BaseWorker(QObject):
-    """Abstract base worker with common functionality for all workers."""
+    """Abstract base worker with common functionality for all workers.
+
+    Provides standard error handling, event processing, and thread management.
+    """
 
     progress = Signal(str)
     error = Signal(str)
+    finished = Signal()
 
     def __init__(self, api: GoogleApi) -> None:
         super().__init__()
         self.api = api
+        self._stop_requested = False
+
+    def stop(self) -> None:
+        """Request the worker to stop gracefully."""
+        self._stop_requested = True
 
     @abstractmethod
     @Slot()
@@ -49,8 +58,109 @@ class BaseWorker(QObject):
         """Wrapper with standard error handling."""
         try:
             self.run()
+            self.finished.emit()
         except Exception as exc:
             self.error.emit(str(exc))
+
+    def _process_events(
+        self,
+        events: list[EnhancedCreatedEvent],
+        process_func: callable,
+        success_msg_template: str,
+        skip_msg_template: str,
+        error_msg_template: str,
+    ) -> tuple[list, list]:
+        """Process events with standard error handling and progress reporting.
+
+        Args:
+            events: List of events to process
+            process_func: Function to process a single event
+            success_msg_template: Template for success message
+            skip_msg_template: Template for skip message
+            error_msg_template: Template for error message
+
+        Returns:
+            Tuple of processed event IDs and skipped events
+        """
+        processed_event_ids = []
+        skipped_events = []
+
+        for event in events:
+            if self._stop_requested:
+                self.progress.emit("Operation cancelled by user")
+                break
+
+            try:
+                process_func(event)
+                processed_event_ids.append(event.event_id)
+                if event.start_time:
+                    self.progress.emit(success_msg_template.format(
+                        event_id=event.event_id,
+                        event_name=event.event_name,
+                        date=event.start_time.date()
+                    ))
+                else:
+                    self.progress.emit(success_msg_template.format(
+                        event_id=event.event_id,
+                        event_name=event.event_name
+                    ))
+            except HttpError as e:
+                if e.resp.status in (404, 410):
+                    skipped_events.append(event)
+                    self.progress.emit(skip_msg_template.format(
+                        event_id=event.event_id,
+                        event_name=event.event_name
+                    ))
+                    processed_event_ids.append(event.event_id)
+                else:
+                    raise
+            except Exception as e:
+                self.progress.emit(error_msg_template.format(
+                    event_id=event.event_id,
+                    event_name=event.event_name,
+                    error=str(e)
+                ))
+                raise
+
+        return processed_event_ids, skipped_events
+
+    def _build_email_message(
+        self,
+        processed_count: int,
+        skipped_count: int,
+        event_names: set,
+        batch_description: str,
+        operation: str,
+    ) -> str:
+        """Build a standardized email message for event operations.
+
+        Args:
+            processed_count: Number of processed events
+            skipped_count: Number of skipped events
+            event_names: Set of event names
+            batch_description: Batch description
+            operation: Operation type (e.g., "deleted", "recreated")
+
+        Returns:
+            Formatted email message text
+        """
+        message_text = f"{processed_count} calendar event(s) {operation}:\n\n"
+
+        if event_names:
+            event_names_str = ", ".join(sorted(event_names))
+            message_text += f"Event name(s): {event_names_str}\n"
+
+        if batch_description:
+            message_text += f"Batch: {batch_description}\n"
+
+        if skipped_count > 0:
+            message_text += f"\n{skipped_count} event(s) were skipped\n"
+
+        message_text += (
+            f"Processed on: {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        )
+
+        return message_text
 
 
 class EventCreationWorker(BaseWorker):
@@ -135,6 +245,8 @@ class EventCreationWorker(BaseWorker):
 
 
 class UndoWorker(BaseWorker):
+    """Worker to undo a batch of events by deleting them."""
+
     finished = Signal(list)  # List of deleted event IDs
 
     def __init__(
@@ -155,61 +267,37 @@ class UndoWorker(BaseWorker):
     @Slot()
     def run(self) -> None:
         try:
-            deleted_event_ids = []
-            skipped_events = []
-            counter = 0
-            event_names = set()
-
-            for event in self.events:
-                # Create a basic CreatedEvent for the API
+            def delete_event(event: EnhancedCreatedEvent) -> None:
                 basic_event = CreatedEvent(
                     event_id=event.event_id, calendar_id=event.calendar_id
                 )
-                try:
-                    self.api.delete_event(basic_event)
-                    deleted_event_ids.append(event.event_id)
-                    event_names.add(event.event_name)
-                    counter += 1
-                    if event.start_time:
-                        self.progress.emit(
-                            f"Deleted event {event.event_id} ({event.event_name}) on {event.start_time.date()}"
-                        )
-                    else:
-                        self.progress.emit(
-                            f"Deleted event {event.event_id} ({event.event_name})"
-                        )
-                except HttpError as e:
-                    # Handle events that no longer exist (404 or 410 status)
-                    if e.resp.status in (404, 410):
-                        skipped_events.append(event)
-                        self.progress.emit(
-                            f"Skipped event {event.event_id} ({event.event_name}) - already deleted or not found"
-                        )
-                        # Still count as processed since it's gone from calendar
-                        deleted_event_ids.append(event.event_id)
-                    else:
-                        # Re-raise other HTTP errors
-                        raise
+                self.api.delete_event(basic_event)
 
-            if counter or skipped_events:
-                # Create detailed email message
-                message_text = f"{counter} calendar event(s) deleted:\n\n"
-                if event_names:
-                    event_names_str = ", ".join(sorted(event_names))
-                    message_text += f"Event name(s): {event_names_str}\n"
-                message_text += f"Batch: {self.batch_description}\n"
-                if skipped_events:
-                    message_text += f"\n{len(skipped_events)} event(s) were already deleted or not found\n"
-                message_text += (
-                    f"Deleted on: {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            deleted_event_ids, skipped_events = self._process_events(
+                self.events,
+                delete_event,
+                "Deleted event {event_id} ({event_name}) on {date}",
+                "Skipped event {event_id} ({event_name}) - already deleted or not found",
+                "Error processing event {event_id} ({event_name}): {error}",
+            )
+
+            if deleted_event_ids or skipped_events:
+                event_names = {event.event_name for event in self.events}
+                message_text = self._build_email_message(
+                    len(deleted_event_ids),
+                    len(skipped_events),
+                    event_names,
+                    self.batch_description,
+                    "deleted",
                 )
 
                 self.send_notification_email(
                     self.notification_email,
-                    f"Calendar Events Deleted - {counter} events",
+                    f"Calendar Events Deleted - {len(deleted_event_ids)} events",
                     message_text,
                     enabled=self.send_email,
                 )
+
             self.finished.emit(deleted_event_ids)
         except Exception as exc:
             self.error.emit(str(exc))
@@ -229,18 +317,12 @@ class RedoWorker(BaseWorker):
         super().__init__(api)
         self.events = list(events)
         self.batch_description = batch_description
-        self._stop_requested = False
-
-    def stop(self) -> None:
-        """Request the redo operation to stop gracefully."""
-        self._stop_requested = True
 
     @Slot()
     def run(self) -> None:
         try:
             recreated_event_ids = []
             skipped_events = []
-            counter = 0
             event_names = set()
 
             for event in self.events:
@@ -258,7 +340,6 @@ class RedoWorker(BaseWorker):
                     )
                     recreated_event_ids.append(created_event.event_id)
                     event_names.add(event.event_name)
-                    counter += 1
                     if event.start_time:
                         self.progress.emit(
                             f"Recreated event {created_event.event_id} ({event.event_name}) on {event.start_time.date()}"
@@ -268,20 +349,17 @@ class RedoWorker(BaseWorker):
                             f"Recreated event {created_event.event_id} ({event.event_name})"
                         )
                 except HttpError as e:
-                    # Handle events that cannot be recreated
                     if e.resp.status in (404, 410):
                         skipped_events.append(event)
                         self.progress.emit(
                             f"Skipped event {event.event_id} ({event.event_name}) - calendar not found"
                         )
                     else:
-                        # Re-raise other HTTP errors
                         raise
 
-            if counter or skipped_events:
-                # Create detailed progress message
+            if recreated_event_ids or skipped_events:
                 self.progress.emit(
-                    f"Redo complete: {counter} calendar event(s) recreated"
+                    f"Redo complete: {len(recreated_event_ids)} calendar event(s) recreated"
                 )
                 if skipped_events:
                     self.progress.emit(
@@ -292,24 +370,6 @@ class RedoWorker(BaseWorker):
         except Exception as exc:
             self.error.emit(str(exc))
 
-
-class StartupWorker(QThread):
-    """Worker thread to load user email and calendar list in background."""
-
-    finished = Signal(tuple)  # (user_email, (calendar_names, calendar_items))
-    error = Signal(str)
-
-    def __init__(self, api: GoogleApi) -> None:
-        super().__init__()
-        self.api = api
-
-    def run(self) -> None:
-        try:
-            user_email = self.api.user_email()
-            calendar_names, calendar_items = self.api.list_calendars()
-            self.finished.emit((user_email, (calendar_names, calendar_items)))
-        except Exception as exc:
-            self.error.emit(str(exc))
 
 class DeleteWorker(BaseWorker):
     """Worker to delete a batch of events from the calendar."""
@@ -335,59 +395,60 @@ class DeleteWorker(BaseWorker):
     @Slot()
     def run(self) -> None:
         try:
-            deleted_event_ids = []
-            skipped_events = []
-            counter = 0
-            event_names = set()
-            self.deleted_snapshots = []  # Reset snapshots
-
-            for event in self.events:
+            def delete_event(event: EnhancedCreatedEvent) -> None:
                 basic_event = CreatedEvent(
                     event_id=event.event_id, calendar_id=event.calendar_id
                 )
-                try:
-                    self.api.delete_event(basic_event)
-                    deleted_event_ids.append(event.event_id)
-                    self.deleted_snapshots.append(event)  # NEW: preserve snapshot
-                    event_names.add(event.event_name)
-                    counter += 1
-                    if event.start_time:
-                        self.progress.emit(
-                            f"Deleted event {event.event_id} ({event.event_name}) on {event.start_time.date()}"
-                        )
-                    else:
-                        self.progress.emit(
-                            f"Deleted event {event.event_id} ({event.event_name})"
-                        )
-                except HttpError as e:
-                    if e.resp.status in (404, 410):
-                        skipped_events.append(event)
-                        self.progress.emit(
-                            f"Skipped event {event.event_id} ({event.event_name}) - already deleted or not found"
-                        )
-                        deleted_event_ids.append(event.event_id)
-                        self.deleted_snapshots.append(event)  # NEW: preserve even if not found
-                    else:
-                        raise
+                self.api.delete_event(basic_event)
+                self.deleted_snapshots.append(event)
 
-            if counter or skipped_events:
-                event_names_str = ", ".join(sorted(event_names))
-                message_text = f"{counter} calendar event(s) deleted:\n\n"
-                message_text += f"Event name(s): {event_names_str}\n"
-                message_text += f"Batch: {self.batch_description}\n"
-                if skipped_events:
-                    message_text += f"\n{len(skipped_events)} event(s) were already deleted or not found\n"
-                message_text += (
-                    f"Deleted on: {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            self.deleted_snapshots = []  # Reset snapshots
+            deleted_event_ids, skipped_events = self._process_events(
+                self.events,
+                delete_event,
+                "Deleted event {event_id} ({event_name}) on {date}",
+                "Skipped event {event_id} ({event_name}) - already deleted or not found",
+                "Error processing event {event_id} ({event_name}): {error}",
+            )
+
+            if deleted_event_ids or skipped_events:
+                event_names = {event.event_name for event in self.events}
+                message_text = self._build_email_message(
+                    len(deleted_event_ids),
+                    len(skipped_events),
+                    event_names,
+                    self.batch_description,
+                    "deleted",
                 )
 
                 self.send_notification_email(
                     self.notification_email,
-                    f"Calendar Events Deleted - {counter} events",
+                    f"Calendar Events Deleted - {len(deleted_event_ids)} events",
                     message_text,
                     enabled=self.send_email,
                 )
+
             self.finished.emit(deleted_event_ids, self.batch_description)
+        except Exception as exc:
+            self.error.emit(str(exc))
+
+
+class StartupWorker(QObject):
+    """Worker to load user email and calendar list in background."""
+
+    finished = Signal(tuple)  # (user_email, (calendar_names, calendar_items))
+    error = Signal(str)
+
+    def __init__(self, api: GoogleApi) -> None:
+        super().__init__()
+        self.api = api
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            user_email = self.api.user_email()
+            calendar_names, calendar_items = self.api.list_calendars()
+            self.finished.emit((user_email, (calendar_names, calendar_items)))
         except Exception as exc:
             self.error.emit(str(exc))
 

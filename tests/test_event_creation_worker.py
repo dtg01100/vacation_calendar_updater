@@ -1,6 +1,6 @@
 """Tests for EventCreationWorker.
 
-Tests focus on critical paths: event creation flow, stop/cancellation, 
+Tests focus on critical paths: event creation flow, stop/cancellation,
 signal emissions, error handling, and email notifications.
 """
 
@@ -181,7 +181,7 @@ class TestEventCreationExecution:
         first_event = created_events[0]
         assert first_event.start_time.time() == dt.time(9, 0)
         assert first_event.end_time.time() == dt.time(17, 0)  # 9am + 8 hours
-        
+
         # Check all events are on weekdays
         for event in created_events:
             assert event.start_time.weekday() < 5  # Monday=0, Friday=4
@@ -289,7 +289,7 @@ class TestEventCreationEmailNotification:
 
         call_args = mock_api.send_email.call_args
         email_body = call_args[0][2]  # body is 3rd positional arg
-        
+
         assert "Test Vacation" in email_body
         assert "40" in email_body or "40.0" in email_body  # 5 days * 8 hours
         assert "5 days" in email_body

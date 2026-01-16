@@ -327,7 +327,7 @@ class TestUndoWorkerEmailNotification:
         # Make 2 succeed, 1 fail with 404
         mock_response_404 = MagicMock()
         mock_response_404.status = 404
-        
+
         call_count = [0]
         def delete_with_404(*args, **kwargs):
             call_count[0] += 1
@@ -347,7 +347,7 @@ class TestUndoWorkerEmailNotification:
         worker.run()
 
         email_body = mock_api.send_email.call_args[0][2]
-        assert "already deleted" in email_body or "not found" in email_body
+        assert "were skipped" in email_body
 
 
 class TestRedoWorkerInit:
