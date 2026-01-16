@@ -7,18 +7,18 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.ui.dark_mode import (
-    is_dark_mode,
     get_colors,
     get_dark_mode_colors,
     get_light_mode_colors,
-    style_mode_frame,
-    style_mode_button,
+    is_dark_mode,
     style_batch_summary_label,
-    style_validation_status,
-    style_import_panel,
     style_import_button,
-    style_import_list,
     style_import_label,
+    style_import_list,
+    style_import_panel,
+    style_mode_button,
+    style_mode_frame,
+    style_validation_status,
 )
 
 

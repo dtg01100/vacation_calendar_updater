@@ -153,3 +153,51 @@ def style_import_label(label: QtWidgets.QLabel) -> None:
     """Style import status label."""
     colors = get_colors()
     label.setStyleSheet(f"color: {colors['fg']}; font-size: 11px;")
+
+
+def mark_field_valid(widget: QtWidgets.QWidget) -> None:
+    """Mark a form field as valid with a green checkmark indicator."""
+    colors = get_colors()
+    widget.setStyleSheet(
+        f"""
+        {widget.__class__.__name__} {{
+            background-color: {colors['bg']};
+            color: {colors['fg']};
+            border: 2px solid {colors['success_fg']};
+            border-radius: 2px;
+            padding: 2px;
+        }}
+        """
+    )
+
+
+def mark_field_invalid(widget: QtWidgets.QWidget) -> None:
+    """Mark a form field as invalid with a red X indicator."""
+    colors = get_colors()
+    widget.setStyleSheet(
+        f"""
+        {widget.__class__.__name__} {{
+            background-color: {colors['bg']};
+            color: {colors['fg']};
+            border: 2px solid {colors['error_fg']};
+            border-radius: 2px;
+            padding: 2px;
+        }}
+        """
+    )
+
+
+def clear_field_indicator(widget: QtWidgets.QWidget) -> None:
+    """Clear validation indicator from a form field."""
+    colors = get_colors()
+    widget.setStyleSheet(
+        f"""
+        {widget.__class__.__name__} {{
+            background-color: {colors['bg']};
+            color: {colors['fg']};
+            border: 1px solid {colors['border']};
+            border-radius: 2px;
+            padding: 2px;
+        }}
+        """
+    )
