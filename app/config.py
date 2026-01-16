@@ -17,7 +17,7 @@ def get_config_directory() -> Path:
         Path: The configuration directory for the application.
     """
     config_dir = QtCore.QStandardPaths.writableLocation(
-        QtCore.QStandardPaths.ConfigLocation
+        QtCore.QStandardPaths.StandardLocation.ConfigLocation
     )
     return Path(config_dir)
 
@@ -39,6 +39,14 @@ class Settings:
     calendar: str
     weekdays: Mapping[str, bool]
     send_email: bool = True
+    time_presets: list[str] | None = None  # e.g., ["08:00", "09:00", "12:00", "13:00", "14:00", "17:00"]
+    last_start_time: str = "08:00"  # HH:MM format
+    last_day_length: str = "08:00"  # HH:MM format
+
+    def __post_init__(self) -> None:
+        """Initialize default time presets if not provided."""
+        if self.time_presets is None:
+            self.time_presets = ["08:00", "09:00", "12:00", "13:00", "14:00", "17:00"]
 
     def as_bool_list(self) -> list[bool]:
         return [bool(self.weekdays.get(key, False)) for key in WEEKDAY_KEYS]
@@ -185,6 +193,12 @@ class ConfigManager:
                 SETTINGS_SECTION, key, str(bool(settings.weekdays.get(key, False)))
             )
         config.set(SETTINGS_SECTION, "send_email", str(bool(settings.send_email)))
+        # Save time presets as comma-separated string
+        if settings.time_presets:
+            config.set(SETTINGS_SECTION, "time_presets", ",".join(settings.time_presets))
+        # Save last used times
+        config.set(SETTINGS_SECTION, "last_start_time", settings.last_start_time)
+        config.set(SETTINGS_SECTION, "last_day_length", settings.last_day_length)
         self._write(config)
 
     def _save_qt(self, settings: Settings) -> None:
@@ -196,45 +210,78 @@ class ConfigManager:
             self._qt_settings.setValue(key, bool(settings.weekdays.get(key, False)))
 
         self._qt_settings.setValue("send_email", bool(settings.send_email))
+        
+        # Save time presets as comma-separated string
+        if settings.time_presets:
+            self._qt_settings.setValue("time_presets", ",".join(settings.time_presets))
+        
+        # Save last used times
+        self._qt_settings.setValue("last_start_time", settings.last_start_time)
+        self._qt_settings.setValue("last_day_length", settings.last_day_length)
 
     # File-based methods (for testing)
     def _read(self) -> configparser.RawConfigParser:
         config = configparser.RawConfigParser()
-        if self.path.exists():
+        if self.path and self.path.exists():
             config.read(self.path)
         return config
 
     def _write(self, config: configparser.RawConfigParser) -> None:
-        if not self.path.parent.exists():
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("w") as configfile:
-            config.write(configfile)
+        if self.path:
+            if not self.path.parent.exists():
+                self.path.parent.mkdir(parents=True, exist_ok=True)
+            with self.path.open("w") as configfile:
+                config.write(configfile)
 
     def _to_settings_file(self, config: configparser.RawConfigParser) -> Settings:
         section = SETTINGS_SECTION
         weekdays = {
             key: config.getboolean(section, key, fallback=True) for key in WEEKDAY_KEYS
         }
+        
+        # Load time presets from comma-separated string
+        time_presets_str = config.get(section, "time_presets", fallback="08:00,09:00,12:00,13:00,14:00,17:00")
+        time_presets = [t.strip() for t in time_presets_str.split(",") if t.strip()]
+        
         return Settings(
             email_address=config.get(section, "email_address", fallback=""),
             calendar=config.get(section, "calendar", fallback=""),
             weekdays=weekdays,
             send_email=config.getboolean(section, "send_email", fallback=True),
+            time_presets=time_presets,
+            last_start_time=config.get(section, "last_start_time", fallback="08:00"),
+            last_day_length=config.get(section, "last_day_length", fallback="08:00"),
         )
 
     def _load_settings_qt(self) -> Settings:
         """Load settings from Qt QSettings."""
         weekdays = {}
         for key in WEEKDAY_KEYS:
-            weekdays[key] = self._qt_settings.value(key, defaultValue=True, type=bool)
+            value = self._qt_settings.value(key, defaultValue=True)
+            weekdays[key] = bool(value) if value is not None else True
+
+        # Load time presets from comma-separated string
+        time_presets_str = self._qt_settings.value(
+            "time_presets", 
+            defaultValue="08:00,09:00,12:00,13:00,14:00,17:00"
+        )
+        if isinstance(time_presets_str, str):
+            time_presets = [t.strip() for t in time_presets_str.split(",") if t.strip()]
+        else:
+            time_presets = ["08:00", "09:00", "12:00", "13:00", "14:00", "17:00"]
+
+        email_address = self._qt_settings.value("email_address", defaultValue="")
+        calendar = self._qt_settings.value("calendar", defaultValue="")
+        send_email = self._qt_settings.value("send_email", defaultValue=True)
+        last_start_time = self._qt_settings.value("last_start_time", defaultValue="08:00")
+        last_day_length = self._qt_settings.value("last_day_length", defaultValue="08:00")
 
         return Settings(
-            email_address=self._qt_settings.value(
-                "email_address", defaultValue="", type=str
-            ),
-            calendar=self._qt_settings.value("calendar", defaultValue="", type=str),
+            email_address=str(email_address) if email_address is not None else "",
+            calendar=str(calendar) if calendar is not None else "",
             weekdays=weekdays,
-            send_email=self._qt_settings.value(
-                "send_email", defaultValue=True, type=bool
-            ),
+            send_email=bool(send_email) if send_email is not None else True,
+            time_presets=time_presets,
+            last_start_time=str(last_start_time) if last_start_time is not None else "08:00",
+            last_day_length=str(last_day_length) if last_day_length is not None else "08:00",
         )
