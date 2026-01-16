@@ -1,16 +1,16 @@
 """Dialog for selecting and undeleting batches from delete history."""
 from __future__ import annotations
 
-from typing import Optional
-
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem, QLabel,
-    QPushButton, QDialog, QDialogButtonBox
+    QDialog,
+    QDialogButtonBox,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
-
-from app.validation import UndoBatch
 
 
 class DeletedBatchSelectorWidget(QWidget):
@@ -28,7 +28,7 @@ class DeletedBatchSelectorWidget(QWidget):
     
     batch_selected = Signal(str)  # batch_id
     
-    def __init__(self, undo_manager, parent: Optional[QWidget] = None):
+    def __init__(self, undo_manager, parent: QWidget | None = None):
         """Initialize the deleted batch selector.
         
         Args:
@@ -37,7 +37,7 @@ class DeletedBatchSelectorWidget(QWidget):
         """
         super().__init__(parent)
         self.undo_manager = undo_manager
-        self._selected_batch_id: Optional[str] = None
+        self._selected_batch_id: str | None = None
         self._init_ui()
         self._populate_deleted_batches()
     
@@ -98,7 +98,7 @@ class DeletedBatchSelectorWidget(QWidget):
             self._selected_batch_id = batch_id
             self.batch_selected.emit(batch_id)
     
-    def get_selected_batch_id(self) -> Optional[str]:
+    def get_selected_batch_id(self) -> str | None:
         """Get the currently selected batch ID."""
         return self._selected_batch_id
     
@@ -113,7 +113,7 @@ class DeletedBatchSelectorDialog(QDialog):
     Returns the selected batch_id through the dialog result.
     """
     
-    def __init__(self, undo_manager, parent: Optional[QWidget] = None):
+    def __init__(self, undo_manager, parent: QWidget | None = None):
         """Initialize the deleted batch selector dialog.
         
         Args:
@@ -125,7 +125,7 @@ class DeletedBatchSelectorDialog(QDialog):
         self.setGeometry(100, 100, 600, 400)
         
         self.undo_manager = undo_manager
-        self._selected_batch_id: Optional[str] = None
+        self._selected_batch_id: str | None = None
         
         self._init_ui()
     
@@ -166,6 +166,6 @@ class DeletedBatchSelectorDialog(QDialog):
             # No batch selected, don't close dialog
             pass
     
-    def get_selected_batch_id(self) -> Optional[str]:
+    def get_selected_batch_id(self) -> str | None:
         """Get the selected batch ID after dialog acceptance."""
         return self._selected_batch_id

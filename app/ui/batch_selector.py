@@ -1,17 +1,19 @@
 """Calendar-based batch selector widget for UPDATE/DELETE modes."""
 from __future__ import annotations
 
-import datetime as dt
-from typing import Optional
-
-from PySide6.QtCore import Qt, QDate, Signal
-from PySide6.QtGui import QTextCharFormat, QColor, QFont
+from PySide6.QtCore import QDate, Qt, Signal
+from PySide6.QtGui import QColor, QFont, QTextCharFormat
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QCalendarWidget, QTreeWidget,
-    QTreeWidgetItem, QLabel, QPushButton, QDialog, QDialogButtonBox, QScrollArea
+    QCalendarWidget,
+    QDialog,
+    QDialogButtonBox,
+    QHBoxLayout,
+    QLabel,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
-
-from app.validation import UndoBatch
 
 
 class BatchSelectorWidget(QWidget):
@@ -30,7 +32,7 @@ class BatchSelectorWidget(QWidget):
     
     batch_selected = Signal(str)  # batch_id
     
-    def __init__(self, undo_manager, parent: Optional[QWidget] = None):
+    def __init__(self, undo_manager, parent: QWidget | None = None):
         """Initialize the batch selector.
         
         Args:
@@ -39,7 +41,7 @@ class BatchSelectorWidget(QWidget):
         """
         super().__init__(parent)
         self.undo_manager = undo_manager
-        self._selected_batch_id: Optional[str] = None
+        self._selected_batch_id: str | None = None
         self._batch_item_map = {}  # Maps QTreeWidgetItem -> batch_id
         self._init_ui()
         self._populate_batches_for_date(QDate.currentDate())
@@ -162,7 +164,7 @@ class BatchSelectorWidget(QWidget):
         self._selected_batch_id = batch_id
         self.batch_selected.emit(batch_id)
     
-    def get_selected_batch_id(self) -> Optional[str]:
+    def get_selected_batch_id(self) -> str | None:
         """Get the currently selected batch ID."""
         return self._selected_batch_id
 
@@ -173,7 +175,7 @@ class BatchSelectorDialog(QDialog):
     Returns the selected batch_id through the dialog result.
     """
     
-    def __init__(self, undo_manager, parent: Optional[QWidget] = None):
+    def __init__(self, undo_manager, parent: QWidget | None = None):
         """Initialize the batch selector dialog.
         
         Args:
@@ -185,7 +187,7 @@ class BatchSelectorDialog(QDialog):
         self.setGeometry(100, 100, 900, 500)
         
         self.undo_manager = undo_manager
-        self._selected_batch_id: Optional[str] = None
+        self._selected_batch_id: str | None = None
         
         self._init_ui()
     
@@ -218,6 +220,6 @@ class BatchSelectorDialog(QDialog):
             # No batch selected, don't close dialog
             pass
     
-    def get_selected_batch_id(self) -> Optional[str]:
+    def get_selected_batch_id(self) -> str | None:
         """Get the selected batch ID after dialog acceptance."""
         return self._selected_batch_id
