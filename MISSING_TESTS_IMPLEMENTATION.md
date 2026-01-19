@@ -24,26 +24,7 @@ Implemented comprehensive test coverage for UI components in the vacation_calend
 - `TestDatePickerKeyboardShortcuts`: 6 tests
 - `TestDatePickerEdgeCases`: 8 tests
 
-### 2. `test_time_picker_dialog.py` (40 tests)
-**Purpose**: Test the `TimePickerDialog` in `app/ui/time_picker.py`
-
-**Test Coverage**:
-- **Initialization**: Dialog creation, modality, window title, dimensions
-- **Hour Spinbox**: Range validation, value setting, increment/decrement
-- **Minute Spinbox**: Range validation, value setting, increment/decrement
-- **Selected Time Retrieval**: Return type, custom times, after changes
-- **Time Display**: Label existence, format updates, padding validation
-- **Edge Cases**: Midnight, noon, end of day, consecutive changes, parent widgets, multiple dialogs
-
-**Key Test Classes**:
-- `TestTimePickerDialogInitialization`: 7 tests
-- `TestTimePickerHourSpinbox`: 6 tests
-- `TestTimePickerMinuteSpinbox`: 6 tests
-- `TestTimePickerGetSelectedTime`: 6 tests
-- `TestTimePickerTimeDisplay`: 3 tests
-- `TestTimePickerEdgeCases`: 12 tests
-
-### 3. `test_batch_selector_ui.py` (33 tests)
+ ### 2. `test_batch_selector_ui.py` (33 tests)
 **Purpose**: Test the `BatchSelectorWidget` and `BatchSelectorDialog` in `app/ui/batch_selector.py`
 
 **Test Coverage**:
@@ -70,12 +51,11 @@ Implemented comprehensive test coverage for UI components in the vacation_calend
 
 ## Test Statistics
 
-| File | Test Methods | Test Classes |
-|------|--------------|--------------|
-| test_datepicker_dialog.py | 34 | 6 |
-| test_time_picker_dialog.py | 40 | 6 |
-| test_batch_selector_ui.py | 33 | 9 |
-| **Total** | **107** | **21** |
+ | File | Test Methods | Test Classes |
+ |------|--------------|--------------|
+ | test_datepicker_dialog.py | 34 | 6 |
+ | test_batch_selector_ui.py | 33 | 9 |
+ | **Total** | **67** | **15** |
 
 ## Coverage Areas
 
@@ -89,11 +69,10 @@ Implemented comprehensive test coverage for UI components in the vacation_calend
 - ✅ Parent-child widget relationships
 - ✅ Multiple instance handling
 
-### Previously Untested Components Now Covered
+ ### Previously Untested Components Now Covered
 1. **DatePicker**: Full keyboard shortcut testing, date navigation, popup management
-2. **TimePickerDialog**: Spinbox ranges, time display formatting, dialog behavior
-3. **BatchSelectorWidget UI**: Calendar integration, batch tree population, highlighting
-4. **BatchSelectorDialog**: Modal behavior, selection handling, dialog lifecycle
+2. **BatchSelectorWidget UI**: Calendar integration, batch tree population, highlighting
+3. **BatchSelectorDialog**: Modal behavior, selection handling, dialog lifecycle
 
 ## Test Patterns Used
 
@@ -124,5 +103,5 @@ Future test enhancements could include:
 
 ---
 **Implementation Date**: January 14, 2026
-**Total New Tests**: 107
-**New Test Files**: 3
+**Total New Tests**: 67
+**New Test Files**: 2
