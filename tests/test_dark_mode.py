@@ -7,9 +7,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.ui.dark_mode import (
+    DarkModeDetector,
     get_colors,
     get_dark_mode_colors,
     get_light_mode_colors,
+    get_theme_detector,
     is_dark_mode,
     style_batch_summary_label,
     style_import_button,
@@ -107,8 +109,68 @@ def test_import_styles():
     style_import_label(import_label)
 
 
+def test_theme_detector():
+    """Test theme detector singleton and functionality."""
+    from PySide6 import QtWidgets
+    
+    # Create a dummy app for testing
+    app = QtWidgets.QApplication.instance()
+    if app is None:
+        app = QtWidgets.QApplication([])
+    
+    # Test singleton behavior
+    detector1 = get_theme_detector()
+    detector2 = get_theme_detector()
+    assert detector1 is detector2
+    
+    # Test detector is an instance of DarkModeDetector
+    assert isinstance(detector1, DarkModeDetector)
+    
+    # Test signal exists
+    assert hasattr(detector1, 'dark_mode_changed')
+
+
+def test_theme_detector_signal():
+    """Test that theme detector emits signal when dark mode changes."""
+    from PySide6 import QtWidgets, QtGui
+    
+    # Create a dummy app for testing
+    app = QtWidgets.QApplication.instance()
+    if app is None:
+        app = QtWidgets.QApplication([])
+    
+    detector = get_theme_detector()
+    
+    # Track if signal was emitted
+    signal_received = False
+    
+    def on_theme_changed(is_dark: bool):
+        nonlocal signal_received
+        signal_received = True
+    
+    detector.dark_mode_changed.connect(on_theme_changed)
+    
+    # Change palette to trigger detection
+    original_palette = app.palette()
+    dark_palette = QtGui.QPalette()
+    dark_palette.setColor(QtGui.QPalette.ColorRole.Window, QtGui.QColor(30, 30, 30))
+    app.setPalette(dark_palette)
+    
+    # Process events to allow signal to be emitted
+    app.processEvents()
+    
+    # Restore original palette
+    app.setPalette(original_palette)
+    app.processEvents()
+    
+    # Verify signal was received
+    assert signal_received
+
+
 if __name__ == "__main__":
     test_dark_mode_detection()
     test_color_schemes()
     test_style_functions()
     test_import_styles()
+    test_theme_detector()
+    test_theme_detector_signal()

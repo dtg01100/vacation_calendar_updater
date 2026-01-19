@@ -1,4 +1,5 @@
 """Calendar-based batch selector widget for UPDATE/DELETE modes."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import QDate, Qt, Signal
@@ -14,6 +15,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from . import dark_mode
 
 
 class BatchSelectorWidget(QWidget):
@@ -92,9 +95,10 @@ class BatchSelectorWidget(QWidget):
                 dates_with_events.add(event.start_time.date())
 
         # Apply formatting to highlighted dates
+        colors = dark_mode.get_colors()
         fmt = QTextCharFormat()
         fmt.setFontWeight(QFont.Bold)
-        fmt.setForeground(QColor("#0066cc"))
+        fmt.setForeground(QColor(colors["button_checked"]))
 
         for date in dates_with_events:
             q_date = QDate(date.year, date.month, date.day)
@@ -128,7 +132,11 @@ class BatchSelectorWidget(QWidget):
             # Batch item: "Batch [type] - N events"
             event_count = len(batch.events)
             batch_text = f"Batch ({batch.batch_id[:8]}) - {event_count} event{'s' if event_count != 1 else ''}"
-            batch_time = batch.created_at.strftime("%Y-%m-%d %H:%M") if batch.created_at else "Unknown"
+            batch_time = (
+                batch.created_at.strftime("%Y-%m-%d %H:%M")
+                if batch.created_at
+                else "Unknown"
+            )
 
             batch_item = QTreeWidgetItem()
             batch_item.setText(0, batch_text)
@@ -142,7 +150,11 @@ class BatchSelectorWidget(QWidget):
             # Add events as child items
             for event in batch.events:
                 event_text = event.event_name or "(No name)"
-                event_date = event.start_time.strftime("%Y-%m-%d") if event.start_time else "Unknown"
+                event_date = (
+                    event.start_time.strftime("%Y-%m-%d")
+                    if event.start_time
+                    else "Unknown"
+                )
 
                 event_item = QTreeWidgetItem()
                 event_item.setText(0, f"  • {event_text}")
@@ -200,9 +212,7 @@ class BatchSelectorDialog(QDialog):
         layout.addWidget(self.selector)
 
         # Dialog buttons
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
-        )
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.accepted.connect(self._on_accept)
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)

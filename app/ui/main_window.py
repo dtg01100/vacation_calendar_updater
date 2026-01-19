@@ -56,7 +56,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Mode state: 'create', 'update', or 'delete'
         self.current_mode = "create"
-        self.selected_batch_for_operation: str | None = None  # batch_id for update/delete
+        self.selected_batch_for_operation: str | None = (
+            None  # batch_id for update/delete
+        )
 
         # Use Qt standard paths for platform-appropriate app data directory
         self._app_data_dir = Path(
@@ -100,11 +102,39 @@ class MainWindow(QtWidgets.QMainWindow):
         # Apply dark mode styles
         self._apply_dark_mode_styles()
 
+        # Connect to theme change signals
+        self._connect_theme_change_signals()
+
     def _apply_dark_mode_styles(self) -> None:
-        """Apply dark mode styles if in dark mode."""
-        if not dark_mode.is_dark_mode():
-            return
-        # All widgets have been styled during creation via dark_mode helpers
+        """Apply dark mode styles to all UI elements based on current theme."""
+        # Re-style all widgets with current theme colors
+        dark_mode.style_mode_frame(self.mode_frame)
+        dark_mode.style_mode_button(self.mode_create_btn)
+        dark_mode.style_mode_button(self.mode_update_btn)
+        dark_mode.style_mode_button(self.mode_delete_btn, is_delete=True)
+        dark_mode.style_mode_button(self.mode_import_btn)
+        dark_mode.style_batch_summary_label(self.batch_summary_label)
+        dark_mode.style_validation_status(self.validation_status)
+        dark_mode.style_import_panel(self.import_controls_frame)
+        dark_mode.style_import_button(self.import_fetch_button)
+        dark_mode.style_import_list(self.import_list)
+        dark_mode.style_import_label(self.import_status_label)
+
+        # Re-style log box with appropriate theme
+        colors = dark_mode.get_colors()
+        self.log_box.setStyleSheet(
+            f"background-color: {colors['panel']}; color: {colors['fg']}; "
+            "font-family: monospace; font-size: 10px;"
+        )
+
+    def _connect_theme_change_signals(self) -> None:
+        """Connect to system theme change signals to update UI dynamically."""
+        detector = dark_mode.get_theme_detector()
+        detector.dark_mode_changed.connect(self._on_theme_changed)
+
+    def _on_theme_changed(self, is_dark: bool) -> None:
+        """Handle system theme change and reapply styles."""
+        self._apply_dark_mode_styles()
 
     def _open_batch_selector(self) -> None:
         """Open batch selector dialog to choose a batch for update/delete."""
@@ -126,7 +156,9 @@ class MainWindow(QtWidgets.QMainWindow):
         if not batches:
             self.batch_selector_combo.addItem("No batches available", None)
             self.batch_selector_combo.setEnabled(False)
-            self.batch_summary_label.setText("📭 No batches available. Create events first.")
+            self.batch_summary_label.setText(
+                "📭 No batches available. Create events first."
+            )
             self.selected_batch_for_operation = None
         else:
             for batch in batches:
@@ -257,8 +289,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.mode_frame = QtWidgets.QFrame()
         dark_mode.style_mode_frame(self.mode_frame)
         mode_layout = QtWidgets.QHBoxLayout()
-        mode_layout.setContentsMargins(8, 8, 8, 8)
-        mode_layout.setSpacing(12)
+        mode_layout.setContentsMargins(
+            dark_mode.SPACING_SM,
+            dark_mode.SPACING_SM,
+            dark_mode.SPACING_SM,
+            dark_mode.SPACING_SM,
+        )
+        mode_layout.setSpacing(dark_mode.SPACING_MD)
         self.mode_frame.setLayout(mode_layout)
 
         self.mode_create_btn = QtWidgets.QPushButton("Create")
@@ -306,7 +343,7 @@ class MainWindow(QtWidgets.QMainWindow):
         batch_selector_frame = QtWidgets.QFrame()
         batch_selector_layout = QtWidgets.QVBoxLayout()
         batch_selector_layout.setContentsMargins(0, 0, 0, 0)
-        batch_selector_layout.setSpacing(4)
+        batch_selector_layout.setSpacing(dark_mode.SPACING_XS)
         batch_selector_frame.setLayout(batch_selector_layout)
 
         self.batch_selector_btn = QtWidgets.QPushButton("Select Batch...")
@@ -321,7 +358,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.batch_selector_combo.setPlaceholderText("Select a batch…")
         self.batch_selector_combo.setVisible(False)
         self.batch_selector_combo.setEnabled(False)
-        self.batch_selector_combo.currentIndexChanged.connect(self._on_batch_combo_changed)
+        self.batch_selector_combo.currentIndexChanged.connect(
+            self._on_batch_combo_changed
+        )
         batch_selector_layout.addWidget(self.batch_selector_combo)
 
         # Summary label for selected batch
@@ -350,14 +389,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
         event_name_hbox = QtWidgets.QHBoxLayout()
         event_name_hbox.setContentsMargins(0, 0, 0, 0)
-        event_name_hbox.setSpacing(6)
+        event_name_hbox.setSpacing(dark_mode.SPACING_SM)
         self.event_name = QtWidgets.QLineEdit()
         self.event_name.setToolTip("Name that will appear in your calendar")
         event_name_hbox.addWidget(self.event_name)
 
         self.quick_copy_btn = QtWidgets.QPushButton("Copy Last")
         self.quick_copy_btn.setMinimumWidth(85)
-        self.quick_copy_btn.setToolTip("Copy the last batch's dates, times, weekdays, and email (Ctrl+D)")
+        self.quick_copy_btn.setToolTip(
+            "Copy the last batch's dates, times, weekdays, and email (Ctrl+D)"
+        )
         self.quick_copy_btn.clicked.connect(self._quick_copy_batch)
         self.quick_copy_btn.setEnabled(False)
         event_name_hbox.addWidget(self.quick_copy_btn)
@@ -365,10 +406,14 @@ class MainWindow(QtWidgets.QMainWindow):
         event_name_layout.addLayout(event_name_hbox, 0, 1)
 
         self.notification_email_label = QtWidgets.QLabel("Notification Email")
-        self.notification_email_label.setToolTip("Email address to receive notifications about this event (optional)")
+        self.notification_email_label.setToolTip(
+            "Email address to receive notifications about this event (optional)"
+        )
         event_name_layout.addWidget(self.notification_email_label, 1, 0)
         self.notification_email = QtWidgets.QLineEdit()
-        self.notification_email.setToolTip("Email address to receive notifications about this event (optional)")
+        self.notification_email.setToolTip(
+            "Email address to receive notifications about this event (optional)"
+        )
         self.notification_email.setMinimumWidth(250)
         event_name_layout.addWidget(self.notification_email, 1, 1)
 
@@ -400,7 +445,7 @@ class MainWindow(QtWidgets.QMainWindow):
         time_container = QtWidgets.QWidget()
         time_hbox = QtWidgets.QHBoxLayout()
         time_hbox.setContentsMargins(0, 0, 0, 0)
-        time_hbox.setSpacing(4)
+        time_hbox.setSpacing(dark_mode.SPACING_XS)
         time_container.setLayout(time_hbox)
 
         # Hour spinner
@@ -446,7 +491,7 @@ class MainWindow(QtWidgets.QMainWindow):
         day_length_container = QtWidgets.QWidget()
         day_length_hbox = QtWidgets.QHBoxLayout()
         day_length_hbox.setContentsMargins(0, 0, 0, 0)
-        day_length_hbox.setSpacing(4)
+        day_length_hbox.setSpacing(dark_mode.SPACING_XS)
         day_length_container.setLayout(day_length_hbox)
 
         # Day length hour spinner
@@ -479,8 +524,13 @@ class MainWindow(QtWidgets.QMainWindow):
         # Row 4 Weekdays
         weekday_group = QtWidgets.QGroupBox("Weekdays")
         weekday_layout = QtWidgets.QHBoxLayout()
-        weekday_layout.setContentsMargins(8, 8, 8, 8)
-        weekday_layout.setSpacing(8)
+        weekday_layout.setContentsMargins(
+            dark_mode.SPACING_SM,
+            dark_mode.SPACING_SM,
+            dark_mode.SPACING_SM,
+            dark_mode.SPACING_SM,
+        )
+        weekday_layout.setSpacing(dark_mode.SPACING_SM)
         weekday_group.setLayout(weekday_layout)
 
         self.weekday_boxes: dict[str, QtWidgets.QCheckBox] = {}
@@ -506,7 +556,9 @@ class MainWindow(QtWidgets.QMainWindow):
         weekday_layout.addWidget(self.weekday_preset_btn)
 
         self.days_label = QtWidgets.QLabel("check settings")
-        self.days_label.setToolTip("Days remaining after your vacation ends or '--' if already past")
+        self.days_label.setToolTip(
+            "Days remaining after your vacation ends or '--' if already past"
+        )
         weekday_layout.addWidget(self.days_label)
         weekday_layout.addStretch()
 
@@ -520,7 +572,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Process button spans multiple columns
         self.process_button = QtWidgets.QPushButton("Insert Into Calendar")
-        self.process_button.setToolTip("Create vacation events in the selected calendar (Ctrl+Enter to execute)")
+        self.process_button.setToolTip(
+            "Create vacation events in the selected calendar (Ctrl+Enter to execute)"
+        )
         self.process_button.setAccessibleName("Process Button")
         self.process_button.clicked.connect(self._process)
         self.process_button.setMinimumHeight(32)
@@ -528,7 +582,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Calendar settings in the same row
         self.calendar_label = QtWidgets.QLabel("Calendar:")
-        self.calendar_label.setStyleSheet("font-weight: bold; color: #0288d1;")
+        colors = dark_mode.get_colors()
+        self.calendar_label.setStyleSheet(
+            f"font-weight: bold; color: {colors['button_checked']};"
+        )
         action_layout.addWidget(self.calendar_label, 0, 2)
 
         self.calendar_combo = QtWidgets.QComboBox()
@@ -565,7 +622,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Send email checkbox in the same row
         self.send_email_checkbox = QtWidgets.QCheckBox("Send email")
-        self.send_email_checkbox.setToolTip("Send an email to the notification address when events are created")
+        self.send_email_checkbox.setToolTip(
+            "Send an email to the notification address when events are created"
+        )
         self.send_email_checkbox.setVisible(True)
         action_layout.addWidget(self.send_email_checkbox, 1, 3, 1, 1)
 
@@ -588,15 +647,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.import_controls_frame.setMinimumHeight(180)
         import_layout = QtWidgets.QVBoxLayout()
         import_layout.setContentsMargins(0, 0, 0, 0)
-        import_layout.setSpacing(4)
+        import_layout.setSpacing(dark_mode.SPACING_XS)
         self.import_controls_frame.setLayout(import_layout)
 
-        import_instructions = QtWidgets.QLabel("Import existing calendar events and group them into batches. Use the date range below, fetch, then select the batches to import.")
+        import_instructions = QtWidgets.QLabel(
+            "Import existing calendar events and group them into batches. Use the date range below, fetch, then select the batches to import."
+        )
         import_instructions.setWordWrap(True)
         import_layout.addWidget(import_instructions)
 
         import_dates_layout = QtWidgets.QHBoxLayout()
-        import_dates_layout.setSpacing(4)
+        import_dates_layout.setSpacing(dark_mode.SPACING_XS)
         import_dates_layout.addWidget(QtWidgets.QLabel("From:"))
         self.import_start_date = DatePicker()
         self.import_start_date.setDate(QtCore.QDate.currentDate().addMonths(-3))
@@ -613,7 +674,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         import_actions_layout = QtWidgets.QHBoxLayout()
         self.import_fetch_button = QtWidgets.QPushButton("Fetch from Calendar")
-        self.import_fetch_button.setToolTip("Fetch events in the selected date range and group them into batches")
+        self.import_fetch_button.setToolTip(
+            "Fetch events in the selected date range and group them into batches"
+        )
         dark_mode.style_import_button(self.import_fetch_button)
         self.import_fetch_button.clicked.connect(self._start_import_fetch)
         import_actions_layout.addWidget(self.import_fetch_button)
@@ -632,10 +695,20 @@ class MainWindow(QtWidgets.QMainWindow):
 
         import_select_layout = QtWidgets.QHBoxLayout()
         select_all_btn = QtWidgets.QPushButton("Select All")
-        select_all_btn.clicked.connect(lambda: [self.import_list.item(i).setCheckState(QtCore.Qt.Checked) for i in range(self.import_list.count())])
+        select_all_btn.clicked.connect(
+            lambda: [
+                self.import_list.item(i).setCheckState(QtCore.Qt.Checked)
+                for i in range(self.import_list.count())
+            ]
+        )
         import_select_layout.addWidget(select_all_btn)
         deselect_all_btn = QtWidgets.QPushButton("Deselect All")
-        deselect_all_btn.clicked.connect(lambda: [self.import_list.item(i).setCheckState(QtCore.Qt.Unchecked) for i in range(self.import_list.count())])
+        deselect_all_btn.clicked.connect(
+            lambda: [
+                self.import_list.item(i).setCheckState(QtCore.Qt.Unchecked)
+                for i in range(self.import_list.count())
+            ]
+        )
         import_select_layout.addWidget(deselect_all_btn)
         import_select_layout.addStretch()
         import_layout.addLayout(import_select_layout)
@@ -661,7 +734,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.log_box = QtWidgets.QPlainTextEdit()
         self.log_box.setReadOnly(True)
-        self.log_box.setStyleSheet("background-color: #f5f5f5; color: #333; font-family: monospace; font-size: 10px;")
+        colors = dark_mode.get_colors()
+        self.log_box.setStyleSheet(
+            f"background-color: {colors['panel']}; color: {colors['fg']}; font-family: monospace; font-size: {dark_mode.FONT_SIZE_SMALL}px;"
+        )
         self.log_box.setMaximumHeight(150)
         log_container_layout.addWidget(self.log_box)
 
@@ -697,11 +773,15 @@ class MainWindow(QtWidgets.QMainWindow):
         redo_shortcut.activated.connect(self._redo)
 
         # Ctrl+Enter to process
-        process_shortcut = QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.CTRL | QtCore.Qt.Key_Return), self)
+        process_shortcut = QtGui.QShortcut(
+            QtGui.QKeySequence(QtCore.Qt.CTRL | QtCore.Qt.Key_Return), self
+        )
         process_shortcut.activated.connect(self._process)
 
         # Ctrl+D to quick-copy last batch
-        quick_copy_shortcut = QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.CTRL | QtCore.Qt.Key_D), self)
+        quick_copy_shortcut = QtGui.QShortcut(
+            QtGui.QKeySequence(QtCore.Qt.CTRL | QtCore.Qt.Key_D), self
+        )
         quick_copy_shortcut.activated.connect(self._quick_copy_batch)
 
     def _setup_status_bar(self) -> None:
@@ -803,7 +883,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 end = start
         self._update_validation()
 
-
     def _on_time_spinners_changed(self) -> None:
         """Update validation when time spinners change."""
         self._update_validation()
@@ -836,12 +915,16 @@ class MainWindow(QtWidgets.QMainWindow):
             start_date = parse_date(self.start_date.date())
             end_date = parse_date(self.end_date.date())
             # Use spinners for start time (no modal time edit)
-            start_time_obj = QtCore.QTime(self.hour_spinbox.value(), self.minute_spinbox.value())
+            start_time_obj = QtCore.QTime(
+                self.hour_spinbox.value(), self.minute_spinbox.value()
+            )
             start_time = parse_time(start_time_obj)
         except Exception:
             return None
         # Use spinners for day length
-        day_length_hours = self.day_length_hour_spinbox.value() + (self.day_length_minute_spinbox.value() / 60.0)
+        day_length_hours = self.day_length_hour_spinbox.value() + (
+            self.day_length_minute_spinbox.value() / 60.0
+        )
 
         return ScheduleRequest(
             event_name=self.event_name.text(),
@@ -1005,7 +1088,9 @@ class MainWindow(QtWidgets.QMainWindow):
         current_send_email = self.send_email_checkbox.isChecked()
 
         # Save current time values
-        start_time_str = f"{self.hour_spinbox.value()}:{self.minute_spinbox.value():02d}"
+        start_time_str = (
+            f"{self.hour_spinbox.value()}:{self.minute_spinbox.value():02d}"
+        )
         day_length_str = f"{self.day_length_hour_spinbox.value()}:{self.day_length_minute_spinbox.value():02d}"
 
         settings = Settings(
@@ -1071,12 +1156,16 @@ class MainWindow(QtWidgets.QMainWindow):
             # Reset label to default for create mode
             self.calendar_label.setText("Calendar:")
             self.import_controls_frame.setVisible(False)
-            self.validation_status.setText("📝 Fill in event details and schedule, then click Insert Into Calendar")
+            self.validation_status.setText(
+                "📝 Fill in event details and schedule, then click Insert Into Calendar"
+            )
             self._show_mode_instructions("create")
         elif mode == "update":
             self.process_button.setText("Update Events")
             self.batch_selector_btn.setVisible(True)
-            self.batch_selector_combo.setVisible(False)  # Only show button in update mode
+            self.batch_selector_combo.setVisible(
+                False
+            )  # Only show button in update mode
             self.batch_summary_label.setVisible(True)
             self.undelete_button.setVisible(True)
             self.undo_button.setVisible(True)
@@ -1091,15 +1180,21 @@ class MainWindow(QtWidgets.QMainWindow):
             self.import_controls_frame.setVisible(False)
             batches = self.undo_manager.get_undoable_batches()
             if not batches:
-                self.batch_summary_label.setText("📭 No batches available. Create events first.")
+                self.batch_summary_label.setText(
+                    "📭 No batches available. Create events first."
+                )
                 self.validation_status.setText("🔄 Select a batch to update")
             else:
-                self.validation_status.setText("🔄 Select a batch and modify settings, then click Update Events")
+                self.validation_status.setText(
+                    "🔄 Select a batch and modify settings, then click Update Events"
+                )
             self._show_mode_instructions("update")
         elif mode == "delete":
             self.process_button.setText("Delete Events")
             self.batch_selector_btn.setVisible(True)
-            self.batch_selector_combo.setVisible(False)  # Only show button in delete mode
+            self.batch_selector_combo.setVisible(
+                False
+            )  # Only show button in delete mode
             self.batch_summary_label.setVisible(True)
             self.undelete_button.setVisible(True)
             self.undo_button.setVisible(True)
@@ -1114,10 +1209,14 @@ class MainWindow(QtWidgets.QMainWindow):
             self.import_controls_frame.setVisible(False)
             batches = self.undo_manager.get_undoable_batches()
             if not batches:
-                self.batch_summary_label.setText("📭 No batches available. Create events first.")
+                self.batch_summary_label.setText(
+                    "📭 No batches available. Create events first."
+                )
                 self.validation_status.setText("🗑️ Select a batch to delete")
             else:
-                self.validation_status.setText("🗑️ Select a batch to delete (you can undo this action)")
+                self.validation_status.setText(
+                    "🗑️ Select a batch to delete (you can undo this action)"
+                )
             self._show_mode_instructions("delete")
         elif mode == "import":
             self.process_button.setText("Import Selected Batches")
@@ -1137,7 +1236,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.import_controls_frame.setVisible(True)
             self.import_status_label.setText("Idle")
             self._reset_import_list()
-            self.validation_status.setText("📥 Fetch events, then select batches to import")
+            self.validation_status.setText(
+                "📥 Fetch events, then select batches to import"
+            )
             self._show_mode_instructions("import")
 
         self._update_validation()
@@ -1151,7 +1252,7 @@ class MainWindow(QtWidgets.QMainWindow):
             "create": "📝 Create Mode: Enter event details, select dates, and click 'Insert Into Calendar'",
             "update": "🔄 Update Mode: Select a batch, modify settings, and click 'Update Events'",
             "delete": "🗑️ Delete Mode: Select a batch and click 'Delete Events' (undo available)",
-            "import": "📥 Import Mode: Fetch events, select batches, and click 'Import Selected Batches'"
+            "import": "📥 Import Mode: Fetch events, select batches, and click 'Import Selected Batches'",
         }
         self.statusBar().showMessage(instructions.get(mode, ""), 5000)
 
@@ -1163,7 +1264,9 @@ class MainWindow(QtWidgets.QMainWindow):
         # Process any pending events to ensure UI is responsive
         QtWidgets.QApplication.processEvents()
 
-    def _set_form_fields_visible(self, show_name_email: bool, show_dates: bool, show_schedule: bool) -> None:
+    def _set_form_fields_visible(
+        self, show_name_email: bool, show_dates: bool, show_schedule: bool
+    ) -> None:
         """Show/hide form fields based on mode requirements."""
         # Event name and email labels and fields
         self.event_name_label.setVisible(show_name_email)
@@ -1211,7 +1314,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 batch = self.undo_manager.get_batch_by_id(batch_id)
                 if batch:
                     event_count = len(batch.events)
-                    date_range = f"{batch.events[0].start_time.date()} to {batch.events[-1].end_time.date()}" if batch.events else ""
+                    date_range = (
+                        f"{batch.events[0].start_time.date()} to {batch.events[-1].end_time.date()}"
+                        if batch.events
+                        else ""
+                    )
                     summary = f"{batch.description} · {event_count} event{'s' if event_count != 1 else ''} · {date_range}"
                     self.batch_summary_label.setText(summary)
 
@@ -1219,7 +1326,6 @@ class MainWindow(QtWidgets.QMainWindow):
                     if batch.events and self.current_mode == "update":
                         self.event_name.setText(batch.events[0].event_name)
                 self._update_validation()
-
 
     def _process_create(self) -> None:
         if self._creation_running():
@@ -1274,16 +1380,22 @@ class MainWindow(QtWidgets.QMainWindow):
     def _process_update(self) -> None:
         """Update events in a selected batch."""
         if not self.selected_batch_for_operation:
-            QtWidgets.QMessageBox.warning(self, "No batch selected", "Please select a batch to update.")
+            QtWidgets.QMessageBox.warning(
+                self, "No batch selected", "Please select a batch to update."
+            )
             return
 
         batch = self.undo_manager.get_batch_by_id(self.selected_batch_for_operation)
         if not batch:
-            QtWidgets.QMessageBox.warning(self, "Batch not found", "The selected batch could not be found.")
+            QtWidgets.QMessageBox.warning(
+                self, "Batch not found", "The selected batch could not be found."
+            )
             return
 
         if not batch.events:
-            QtWidgets.QMessageBox.warning(self, "No events", "Selected batch has no events.")
+            QtWidgets.QMessageBox.warning(
+                self, "No events", "Selected batch has no events."
+            )
             return
 
         request = self._collect_request()
@@ -1301,7 +1413,9 @@ class MainWindow(QtWidgets.QMainWindow):
         old_calendar_id = batch.events[0].calendar_id
         if not old_calendar_id:
             QtWidgets.QMessageBox.critical(
-                self, "Calendar missing", "Original calendar ID could not be found in the batch."
+                self,
+                "Calendar missing",
+                "Original calendar ID could not be found in the batch.",
             )
             return
 
@@ -1334,12 +1448,16 @@ class MainWindow(QtWidgets.QMainWindow):
     def _process_delete(self) -> None:
         """Delete events from a selected batch."""
         if not self.selected_batch_for_operation:
-            QtWidgets.QMessageBox.warning(self, "No batch selected", "Please select a batch to delete.")
+            QtWidgets.QMessageBox.warning(
+                self, "No batch selected", "Please select a batch to delete."
+            )
             return
 
         batch = self.undo_manager.get_batch_by_id(self.selected_batch_for_operation)
         if not batch:
-            QtWidgets.QMessageBox.warning(self, "Batch not found", "The selected batch could not be found.")
+            QtWidgets.QMessageBox.warning(
+                self, "Batch not found", "The selected batch could not be found."
+            )
             return
 
         # Build detailed confirmation message with first/last event dates
@@ -1363,7 +1481,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self,
             "Confirm Deletion",
             confirmation_msg,
-            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
+            QtWidgets.QMessageBox.StandardButton.Yes
+            | QtWidgets.QMessageBox.StandardButton.No,
         )
         if reply != QtWidgets.QMessageBox.StandardButton.Yes:
             return
@@ -1562,7 +1681,7 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.information(
                 self,
                 "No Batches to Copy",
-                "Create a batch first before using Quick Copy."
+                "Create a batch first before using Quick Copy.",
             )
             return
 
@@ -1581,7 +1700,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 if "start_date" in snapshot:
                     try:
                         start_date = parse_date(snapshot["start_date"])
-                        self.start_date.setDate(QtCore.QDate(start_date.year, start_date.month, start_date.day))
+                        self.start_date.setDate(
+                            QtCore.QDate(
+                                start_date.year, start_date.month, start_date.day
+                            )
+                        )
                     except Exception:
                         pass
 
@@ -1597,7 +1720,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 if "end_date" in snapshot:
                     try:
                         end_date = parse_date(snapshot["end_date"])
-                        self.end_date.setDate(QtCore.QDate(end_date.year, end_date.month, end_date.day))
+                        self.end_date.setDate(
+                            QtCore.QDate(end_date.year, end_date.month, end_date.day)
+                        )
                     except Exception:
                         pass
 
@@ -1625,25 +1750,36 @@ class MainWindow(QtWidgets.QMainWindow):
                 # Fallback: extract from start_time and end_time datetime objects
                 if first_event.start_time:
                     start_dt = first_event.start_time
-                    self.start_date.setDate(QtCore.QDate(start_dt.year, start_dt.month, start_dt.day))
+                    self.start_date.setDate(
+                        QtCore.QDate(start_dt.year, start_dt.month, start_dt.day)
+                    )
                     self.hour_spinbox.setValue(start_dt.hour)
                     self.minute_spinbox.setValue(start_dt.minute)
 
                 if first_event.end_time:
                     end_dt = first_event.end_time
-                    self.end_date.setDate(QtCore.QDate(end_dt.year, end_dt.month, end_dt.day))
+                    self.end_date.setDate(
+                        QtCore.QDate(end_dt.year, end_dt.month, end_dt.day)
+                    )
 
                 # Try to infer weekdays from events in the batch
                 weekday_set = set()
                 for event in batch.events:
                     if event.start_time:
-                        weekday = event.start_time.weekday()  # Python weekday: 0=Mon, 6=Sun
+                        weekday = (
+                            event.start_time.weekday()
+                        )  # Python weekday: 0=Mon, 6=Sun
                         weekday_set.add(weekday)
 
                 # Map Python weekday numbers to our keys
                 py_to_key = {
-                    0: "monday", 1: "tuesday", 2: "wednesday",
-                    3: "thursday", 4: "friday", 5: "saturday", 6: "sunday"
+                    0: "monday",
+                    1: "tuesday",
+                    2: "wednesday",
+                    3: "thursday",
+                    4: "friday",
+                    5: "saturday",
+                    6: "sunday",
                 }
 
                 # Set checkboxes based on found weekdays
@@ -1672,7 +1808,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.time_preset_combo.blockSignals(True)
         self.time_preset_combo.clear()
 
-        presets = self.settings.time_presets or ["08:00", "09:00", "12:00", "13:00", "14:00", "17:00"]
+        presets = self.settings.time_presets or [
+            "08:00",
+            "09:00",
+            "12:00",
+            "13:00",
+            "14:00",
+            "17:00",
+        ]
 
         for preset_str in presets:
             try:
@@ -1699,7 +1842,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._toggle_inputs(True)
         self._update_validation()
 
-    def _on_delete_finished(self, deleted_event_ids: list[str], batch_description: str) -> None:
+    def _on_delete_finished(
+        self, deleted_event_ids: list[str], batch_description: str
+    ) -> None:
         self._append_log(f"Deletion complete. Deleted {len(deleted_event_ids)} events.")
 
         if self.delete_worker and hasattr(self.delete_worker, "deleted_snapshots"):
@@ -1730,7 +1875,9 @@ class MainWindow(QtWidgets.QMainWindow):
         """Open dialog to select a deleted batch to restore."""
         deleted_batches = self.undo_manager.get_deleted_batches()
         if not deleted_batches:
-            QtWidgets.QMessageBox.information(self, "No Deleted Batches", "There are no deleted batches to restore.")
+            QtWidgets.QMessageBox.information(
+                self, "No Deleted Batches", "There are no deleted batches to restore."
+            )
             return
 
         dialog = DeletedBatchSelectorDialog(self.undo_manager, self)
@@ -1758,7 +1905,11 @@ class MainWindow(QtWidgets.QMainWindow):
                     break
 
         if not operation:
-            QtWidgets.QMessageBox.warning(self, "Batch Not Found", "The selected batch could not be found in delete history.")
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Batch Not Found",
+                "The selected batch could not be found in delete history.",
+            )
             return
 
         # Move from delete_stack to undo_stack
@@ -1836,6 +1987,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.settings.calendar = calendar_name
             self.config_manager.save(self.settings)
             self._update_validation()
+
     def _reset_import_list(self) -> None:
         self.import_batches.clear()
         self.import_list.clear()
@@ -1857,15 +2009,21 @@ class MainWindow(QtWidgets.QMainWindow):
         calendar_name = self.calendar_combo.currentText()
         calendar_id = self.calendar_id_by_name.get(calendar_name)
         if not calendar_id:
-            QtWidgets.QMessageBox.warning(self, "No Calendar", "Please select a calendar first.")
+            QtWidgets.QMessageBox.warning(
+                self, "No Calendar", "Please select a calendar first."
+            )
             return
 
         start_dt = self.import_start_date.date().toPython()
         end_dt = self.import_end_date.date().toPython()
         if start_dt > end_dt:
             start_dt, end_dt = end_dt, start_dt
-            self.import_start_date.setDate(QtCore.QDate(start_dt.year, start_dt.month, start_dt.day))
-            self.import_end_date.setDate(QtCore.QDate(end_dt.year, end_dt.month, end_dt.day))
+            self.import_start_date.setDate(
+                QtCore.QDate(start_dt.year, start_dt.month, start_dt.day)
+            )
+            self.import_end_date.setDate(
+                QtCore.QDate(end_dt.year, end_dt.month, end_dt.day)
+            )
 
         if self.import_thread and self.import_thread.isRunning():
             return
@@ -1938,7 +2096,9 @@ class MainWindow(QtWidgets.QMainWindow):
         """Import the selected batches from the already-fetched list."""
         selected_batches = self.selected_import_batches
         if not selected_batches:
-            QtWidgets.QMessageBox.information(self, "No Batches Selected", "Select at least one batch to import.")
+            QtWidgets.QMessageBox.information(
+                self, "No Batches Selected", "Select at least one batch to import."
+            )
             self._update_validation()
             return
 
@@ -1966,7 +2126,9 @@ class MainWindow(QtWidgets.QMainWindow):
         finished = QtCore.Signal(list)
         error = QtCore.Signal(str)
 
-        def __init__(self, api, calendar_id: str, start_dt: dt.date, end_dt: dt.date, group_func):
+        def __init__(
+            self, api, calendar_id: str, start_dt: dt.date, end_dt: dt.date, group_func
+        ):
             super().__init__()
             self.api = api
             self.calendar_id = calendar_id
@@ -1976,8 +2138,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         def run(self) -> None:
             try:
-                time_min = dt.datetime.combine(self.start_dt, dt.time.min).isoformat() + "Z"
-                time_max = dt.datetime.combine(self.end_dt, dt.time.max).isoformat() + "Z"
+                time_min = (
+                    dt.datetime.combine(self.start_dt, dt.time.min).isoformat() + "Z"
+                )
+                time_max = (
+                    dt.datetime.combine(self.end_dt, dt.time.max).isoformat() + "Z"
+                )
 
                 # Prefer calendar_service() helper; fall back to .service for compatibility
                 service = getattr(self.api, "service", None)
@@ -1985,22 +2151,27 @@ class MainWindow(QtWidgets.QMainWindow):
                     service = self.api.calendar_service()
 
                 if service is None:
-                    raise AttributeError("GoogleApi has no calendar service; ensure_connected failed")
+                    raise AttributeError(
+                        "GoogleApi has no calendar service; ensure_connected failed"
+                    )
 
-                events = service.events().list(
-                    calendarId=self.calendar_id,
-                    timeMin=time_min,
-                    timeMax=time_max,
-                    singleEvents=True,
-                    orderBy="startTime",
-                ).execute()
+                events = (
+                    service.events()
+                    .list(
+                        calendarId=self.calendar_id,
+                        timeMin=time_min,
+                        timeMax=time_max,
+                        singleEvents=True,
+                        orderBy="startTime",
+                    )
+                    .execute()
+                )
 
                 items = events.get("items", [])
                 batches = self.group_func(items, self.calendar_id)
                 self.finished.emit(batches)
             except Exception as e:
                 self.error.emit(str(e))
-
 
     def _group_events_into_batches(self, items: list, calendar_id: str) -> list[dict]:
         """Group calendar events into potential batches based on name and date proximity."""
@@ -2019,14 +2190,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # Handle both dateTime and date (all-day) events
             if "dateTime" in start:
-                start_time = dt.datetime.fromisoformat(start["dateTime"].replace("Z", "+00:00"))
+                start_time = dt.datetime.fromisoformat(
+                    start["dateTime"].replace("Z", "+00:00")
+                )
             elif "date" in start:
                 start_time = dt.datetime.fromisoformat(start["date"] + "T00:00:00")
             else:
                 continue
 
             if "dateTime" in end:
-                end_time = dt.datetime.fromisoformat(end["dateTime"].replace("Z", "+00:00"))
+                end_time = dt.datetime.fromisoformat(
+                    end["dateTime"].replace("Z", "+00:00")
+                )
             elif "date" in end:
                 end_time = dt.datetime.fromisoformat(end["date"] + "T00:00:00")
             else:
@@ -2041,7 +2216,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 end_time=end_time,
                 created_at=dt.datetime.now(),
                 batch_id="",  # Will be set when added to undo manager
-                request_snapshot=None
+                request_snapshot=None,
             )
 
             if summary not in groups:
@@ -2061,27 +2236,33 @@ class MainWindow(QtWidgets.QMainWindow):
                     current_batch.append(event)
                 else:
                     last_event = current_batch[-1]
-                    gap_days = (event.start_time.date() - last_event.start_time.date()).days
+                    gap_days = (
+                        event.start_time.date() - last_event.start_time.date()
+                    ).days
 
                     if gap_days <= 3:  # Adjacent or close events
                         current_batch.append(event)
                     else:
                         # Save current batch and start new one
                         if len(current_batch) > 0:
-                            batches.append({
-                                "description": f"{summary} ({current_batch[0].start_time.date()} - {current_batch[-1].start_time.date()})",
-                                "events": current_batch,
-                                "event_count": len(current_batch)
-                            })
+                            batches.append(
+                                {
+                                    "description": f"{summary} ({current_batch[0].start_time.date()} - {current_batch[-1].start_time.date()})",
+                                    "events": current_batch,
+                                    "event_count": len(current_batch),
+                                }
+                            )
                         current_batch = [event]
 
             # Add final batch
             if current_batch:
-                batches.append({
-                    "description": f"{summary} ({current_batch[0].start_time.date()} - {current_batch[-1].start_time.date()})",
-                    "events": current_batch,
-                    "event_count": len(current_batch)
-                })
+                batches.append(
+                    {
+                        "description": f"{summary} ({current_batch[0].start_time.date()} - {current_batch[-1].start_time.date()})",
+                        "events": current_batch,
+                        "event_count": len(current_batch),
+                    }
+                )
 
         return batches
 
@@ -2094,7 +2275,9 @@ class MainWindow(QtWidgets.QMainWindow):
         layout = QtWidgets.QVBoxLayout()
         dialog.setLayout(layout)
 
-        label = QtWidgets.QLabel(f"Found {len(batches)} potential batch(es). Select which to import:")
+        label = QtWidgets.QLabel(
+            f"Found {len(batches)} potential batch(es). Select which to import:"
+        )
         layout.addWidget(label)
 
         # List widget with checkboxes
@@ -2116,13 +2299,19 @@ class MainWindow(QtWidgets.QMainWindow):
         button_layout = QtWidgets.QHBoxLayout()
         select_all_btn = QtWidgets.QPushButton("Select All")
         select_all_btn.clicked.connect(
-            lambda: [list_widget.item(i).setCheckState(QtCore.Qt.Checked) for i in range(list_widget.count())]
+            lambda: [
+                list_widget.item(i).setCheckState(QtCore.Qt.Checked)
+                for i in range(list_widget.count())
+            ]
         )
         button_layout.addWidget(select_all_btn)
 
         deselect_all_btn = QtWidgets.QPushButton("Deselect All")
         deselect_all_btn.clicked.connect(
-            lambda: [list_widget.item(i).setCheckState(QtCore.Qt.Unchecked) for i in range(list_widget.count())]
+            lambda: [
+                list_widget.item(i).setCheckState(QtCore.Qt.Unchecked)
+                for i in range(list_widget.count())
+            ]
         )
         button_layout.addWidget(deselect_all_btn)
         button_layout.addStretch()
@@ -2279,8 +2468,12 @@ class MainWindow(QtWidgets.QMainWindow):
         undoable_batches = stats["undoable_batches"]
         redoable_batches = stats["redoable_batches"]
 
-        undo_text = f"{undoable_batches} to undo" if undoable_batches > 0 else "0 to undo"
-        redo_text = f"{redoable_batches} to redo" if redoable_batches > 0 else "0 to redo"
+        undo_text = (
+            f"{undoable_batches} to undo" if undoable_batches > 0 else "0 to undo"
+        )
+        redo_text = (
+            f"{redoable_batches} to redo" if redoable_batches > 0 else "0 to redo"
+        )
         self.undo_status_label.setText(f"{undo_text} · {redo_text}")
 
     def _show_progress(self, maximum: int = 100) -> None:

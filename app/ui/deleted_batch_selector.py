@@ -1,4 +1,5 @@
 """Dialog for selecting and undeleting batches from delete history."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
@@ -11,6 +12,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from . import dark_mode
 
 
 class DeletedBatchSelectorWidget(QWidget):
@@ -58,7 +61,8 @@ class DeletedBatchSelectorWidget(QWidget):
 
         # Info label
         self.info_label = QLabel("Select a batch to undelete")
-        self.info_label.setStyleSheet("color: #666666; font-style: italic;")
+        colors = dark_mode.get_colors()
+        self.info_label.setStyleSheet(f"color: {colors['border']}; font-style: italic;")
         layout.addWidget(self.info_label)
 
     def _populate_deleted_batches(self):
@@ -79,7 +83,11 @@ class DeletedBatchSelectorWidget(QWidget):
         # Most recent first (reversed order since batches are returned oldest first)
         for batch in reversed(deleted_batches):
             event_count = len(batch.events)
-            created_date = batch.created_at.strftime("%Y-%m-%d %H:%M") if batch.created_at else "Unknown"
+            created_date = (
+                batch.created_at.strftime("%Y-%m-%d %H:%M")
+                if batch.created_at
+                else "Unknown"
+            )
 
             # Build display text
             batch_desc = batch.description or f"Batch {batch.batch_id[:8]}"
@@ -89,7 +97,9 @@ class DeletedBatchSelectorWidget(QWidget):
             item.setData(Qt.UserRole, batch.batch_id)
             self.batch_list.addItem(item)
 
-        self.info_label.setText(f"{len(deleted_batches)} deleted batch{'es' if len(deleted_batches) != 1 else ''} available")
+        self.info_label.setText(
+            f"{len(deleted_batches)} deleted batch{'es' if len(deleted_batches) != 1 else ''} available"
+        )
 
     def _on_batch_item_clicked(self, item: QListWidgetItem):
         """Handle batch item selection."""
@@ -135,10 +145,10 @@ class DeletedBatchSelectorDialog(QDialog):
 
         # Instructions
         instructions = QLabel(
-            "Select a deleted batch to restore.\n"
-            "Events can be restored in any order."
+            "Select a deleted batch to restore.\nEvents can be restored in any order."
         )
-        instructions.setStyleSheet("color: #555555; margin-bottom: 10px;")
+        colors = dark_mode.get_colors()
+        instructions.setStyleSheet(f"color: {colors['fg']}; margin-bottom: 10px;")
         layout.addWidget(instructions)
 
         # Batch selector widget
@@ -147,9 +157,7 @@ class DeletedBatchSelectorDialog(QDialog):
         layout.addWidget(self.selector)
 
         # Dialog buttons
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
-        )
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.accepted.connect(self._on_accept)
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)

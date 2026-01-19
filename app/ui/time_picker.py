@@ -1,13 +1,20 @@
 """Advanced time picker dialog for vacation calendar."""
+
 from __future__ import annotations
 
 from PySide6 import QtCore, QtWidgets
+
+from . import dark_mode
 
 
 class TimePickerDialog(QtWidgets.QDialog):
     """Modal dialog for advanced time selection with hour and minute spinners."""
 
-    def __init__(self, parent: QtWidgets.QWidget | None = None, initial_time: QtCore.QTime | None = None) -> None:
+    def __init__(
+        self,
+        parent: QtWidgets.QWidget | None = None,
+        initial_time: QtCore.QTime | None = None,
+    ) -> None:
         """Initialize the time picker dialog.
 
         Args:
@@ -34,8 +41,12 @@ class TimePickerDialog(QtWidgets.QDialog):
 
         # Current time display
         current_time_label = QtWidgets.QLabel()
-        current_time_label.setText(f"Current selection: {initial_time.toString('HH:mm')}")
-        current_time_label.setStyleSheet("font-weight: bold; font-size: 12px;")
+        current_time_label.setText(
+            f"Current selection: {initial_time.toString('HH:mm')}"
+        )
+        current_time_label.setStyleSheet(
+            f"font-weight: bold; font-size: {dark_mode.FONT_SIZE_MEDIUM}px;"
+        )
         layout.addWidget(current_time_label)
 
         # Time selection layout
@@ -75,7 +86,10 @@ class TimePickerDialog(QtWidgets.QDialog):
 
         # Display selected time
         self.selected_time_display = QtWidgets.QLabel()
-        self.selected_time_display.setStyleSheet("font-size: 14px; font-weight: bold; color: #0066cc;")
+        colors = dark_mode.get_colors()
+        self.selected_time_display.setStyleSheet(
+            f"font-size: {dark_mode.FONT_SIZE_LARGE}px; font-weight: bold; color: {colors['button_checked']};"
+        )
         self._update_time_display()
         layout.addWidget(self.selected_time_display)
 
