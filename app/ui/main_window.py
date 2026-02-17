@@ -251,10 +251,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.calendar_combo.setEnabled(True)
 
         # Set current calendar from settings
+        # Block signals during restoration to prevent redundant saves
+        self.calendar_combo.blockSignals(True)
         if self.settings.calendar and self.settings.calendar in calendar_names:
             self.calendar_combo.setCurrentText(self.settings.calendar)
         elif calendar_names:
             self.calendar_combo.setCurrentIndex(0)
+        self.calendar_combo.blockSignals(False)
 
         # Update calendar_names for validation
         self.calendar_names = calendar_names  # pylint: disable=attribute-defined-outside-init
@@ -1983,6 +1986,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_calendar_changed(self, calendar_name: str) -> None:
         """Handle calendar selection change."""
         if calendar_name and calendar_name != "Loading...":
+            # Validate that the calendar exists in available calendars
+            if self.calendar_names and calendar_name not in self.calendar_names:
+                return
             # Save the new calendar selection to settings
             self.settings.calendar = calendar_name
             self.config_manager.save(self.settings)
