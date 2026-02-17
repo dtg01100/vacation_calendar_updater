@@ -35,11 +35,23 @@ if ! python3 -c "import requirements" >/dev/null 2>&1; then
 	PYTHON_BIN="${VENV_DIR}/bin/python"
 fi
 
-echo "=== Generating PyPI dependencies ==="
-# Generate pypi-dependencies.json using flatpak-pip-generator
-"$PYTHON_BIN" "$PIP_GENERATOR" \
-	--requirements="${FLATPAK_DIR}/requirements-runtime.txt" \
-	--output="${FLATPAK_DIR}/pypi-dependencies.json"
+# Check if pypi-dependencies.json already exists with manually configured binary wheels
+# The manually configured file uses binary wheels for packages that require Rust/maturin:
+# - cryptography, cffi, charset_normalizer, protobuf
+# The KDE SDK doesn't include Rust, so source tarballs fail to build.
+# Skip regeneration to preserve these manual modifications.
+if [ -f "${FLATPAK_DIR}/pypi-dependencies.json" ]; then
+	echo "=== Using existing pypi-dependencies.json (preserving binary wheel configuration) ==="
+	echo "Note: To regenerate dependencies, delete flatpak/pypi-dependencies.json first"
+else
+	echo "=== Generating PyPI dependencies ==="
+	# Generate pypi-dependencies.json using flatpak-pip-generator
+	# Use PIP_ONLY_BINARY=:all: to prefer pre-built wheels over source distributions
+	# This avoids the need for Rust compilation for packages like cryptography
+	PIP_ONLY_BINARY=:all: "$PYTHON_BIN" "$PIP_GENERATOR" \
+		--requirements="${FLATPAK_DIR}/requirements-runtime.txt" \
+		--output="${FLATPAK_DIR}/pypi-dependencies.json"
+fi
 
 echo "=== Creating source tarball ==="
 # Create a clean tarball without git files
