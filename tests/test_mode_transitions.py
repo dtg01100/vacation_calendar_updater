@@ -1,4 +1,5 @@
 """Tests for mode transitions and state preservation."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -34,7 +35,14 @@ def mock_config():
         },
         send_email=True,
         last_start_time="08:00",  # Add the missing last_start_time attribute
-        time_presets=["08:00", "09:00", "12:00", "13:00", "14:00", "17:00"],  # Add time_presets attribute
+        time_presets=[
+            "08:00",
+            "09:00",
+            "12:00",
+            "13:00",
+            "14:00",
+            "17:00",
+        ],  # Add time_presets attribute
         last_day_length="08:00",  # Add the missing last_day_length attribute
     )
     return config
@@ -51,7 +59,9 @@ def mock_api_with_batches():
 class TestModeTransitions:
     """Test transitions between modes."""
 
-    def test_switch_create_to_update_mode(self, qtbot, mock_api_with_batches, mock_config):
+    def test_switch_create_to_update_mode(
+        self, qtbot, mock_api_with_batches, mock_config
+    ):
         """Switching from CREATE to UPDATE shows batch selector."""
         with patch("app.ui.main_window.StartupWorker"):
             window = MainWindow(api=mock_api_with_batches, config=mock_config)
@@ -68,7 +78,9 @@ class TestModeTransitions:
             window._switch_mode("update")
             assert window.batch_selector_btn.isVisible()
 
-    def test_switch_create_to_delete_mode(self, qtbot, mock_api_with_batches, mock_config):
+    def test_switch_create_to_delete_mode(
+        self, qtbot, mock_api_with_batches, mock_config
+    ):
         """Switching from CREATE to DELETE shows batch selector."""
         with patch("app.ui.main_window.StartupWorker"):
             window = MainWindow(api=mock_api_with_batches, config=mock_config)
@@ -116,7 +128,9 @@ class TestModeTransitions:
 class TestFieldPersistence:
     """Test that form fields persist across mode switches."""
 
-    def test_create_to_update_preserves_form_values(self, qtbot, mock_api_with_batches, mock_config):
+    def test_create_to_update_preserves_form_values(
+        self, qtbot, mock_api_with_batches, mock_config
+    ):
         """Switching CREATE→UPDATE preserves form field values."""
         with patch("app.ui.main_window.StartupWorker"):
             window = MainWindow(api=mock_api_with_batches, config=mock_config)
@@ -143,7 +157,9 @@ class TestFieldPersistence:
             assert window.notification_email.text() == saved_email
             assert window._get_current_calendar() == saved_calendar
 
-    def test_update_to_create_preserves_form_values(self, qtbot, mock_api_with_batches, mock_config):
+    def test_update_to_create_preserves_form_values(
+        self, qtbot, mock_api_with_batches, mock_config
+    ):
         """Switching UPDATE→CREATE preserves form field values."""
         with patch("app.ui.main_window.StartupWorker"):
             window = MainWindow(api=mock_api_with_batches, config=mock_config)
@@ -171,7 +187,9 @@ class TestFieldPersistence:
 class TestScheduleFieldVisibility:
     """Test schedule field visibility changes per mode."""
 
-    def test_create_mode_all_schedule_fields_visible(self, qtbot, mock_api, mock_config):
+    def test_create_mode_all_schedule_fields_visible(
+        self, qtbot, mock_api, mock_config
+    ):
         """All schedule fields visible in CREATE mode."""
         with patch("app.ui.main_window.StartupWorker"):
             window = MainWindow(api=mock_api, config=mock_config)
@@ -191,7 +209,9 @@ class TestScheduleFieldVisibility:
             assert window.minute_spinbox.isVisible()
             assert window.day_length_hour_spinbox.isVisible()
 
-    def test_update_mode_all_schedule_fields_visible(self, qtbot, mock_api_with_batches, mock_config):
+    def test_update_mode_all_schedule_fields_visible(
+        self, qtbot, mock_api_with_batches, mock_config
+    ):
         """All schedule fields visible in UPDATE mode."""
         with patch("app.ui.main_window.StartupWorker"):
             window = MainWindow(api=mock_api_with_batches, config=mock_config)
@@ -211,7 +231,9 @@ class TestScheduleFieldVisibility:
             assert window.minute_spinbox.isVisible()
             assert window.day_length_hour_spinbox.isVisible()
 
-    def test_delete_mode_schedule_fields_hidden(self, qtbot, mock_api_with_batches, mock_config):
+    def test_delete_mode_schedule_fields_hidden(
+        self, qtbot, mock_api_with_batches, mock_config
+    ):
         """Schedule fields hidden in DELETE mode."""
         with patch("app.ui.main_window.StartupWorker"):
             window = MainWindow(api=mock_api_with_batches, config=mock_config)
@@ -229,3 +251,73 @@ class TestScheduleFieldVisibility:
             assert not window.hour_spinbox.isVisible()
             assert not window.minute_spinbox.isVisible()
             assert not window.day_length_hour_spinbox.isVisible()
+
+
+class TestCalendarSelection:
+    """Test calendar selection save/restore behavior."""
+
+    def test_calendar_changed_only_saves_when_calendar_actually_changes(
+        self, qtbot, mock_api, mock_config
+    ):
+        """Calendar change should only save when the value actually differs."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary", "Work"]
+            window.calendar_id_by_name = {"Primary": "cal_001", "Work": "cal_002"}
+            qtbot.addWidget(window)
+            window.show()
+
+            # Set initial calendar (simulating API completion)
+            window.settings.calendar = "Primary"
+            window.calendar_combo.setCurrentText("Primary")
+
+            # Clear any previous save calls
+            mock_config.save.reset_mock()
+
+            # Change to a different calendar - should save
+            window._on_calendar_changed("Work")
+            mock_config.save.assert_called_once()
+
+            # Change to same calendar - should NOT save
+            mock_config.save.reset_mock()
+            window._on_calendar_changed("Work")
+            mock_config.save.assert_not_called()
+
+    def test_apply_settings_does_not_trigger_calendar_changed_signal(
+        self, qtbot, mock_api, mock_config
+    ):
+        """_apply_settings should not trigger _on_calendar_changed (signal blocked)."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary", "Work"]
+            window.calendar_id_by_name = {"Primary": "cal_001", "Work": "cal_002"}
+            qtbot.addWidget(window)
+            window.show()
+
+            # Track calls to _on_calendar_changed
+            with patch.object(window, "_on_calendar_changed") as mock_handler:
+                window._apply_settings()
+                # Should NOT be called due to signal blocking
+                mock_handler.assert_not_called()
+
+    def test_calendar_save_not_triggered_on_startup_when_same_value(
+        self, qtbot, mock_api, mock_config
+    ):
+        """Startup should not trigger redundant calendar saves."""
+        with patch("app.ui.main_window.StartupWorker"):
+            mock_config.ensure_defaults.return_value.calendar = "Primary"
+
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary", "Work"]
+            window.calendar_id_by_name = {"Primary": "cal_001", "Work": "cal_002"}
+            qtbot.addWidget(window)
+            window.show()
+
+            # Clear any saves from initialization
+            mock_config.save.reset_mock()
+
+            # Simulate API completing
+            window._on_startup_finished(("user@test.com", (["Primary", "Work"], [])))
+
+            # Should NOT save since calendar didn't change
+            mock_config.save.assert_not_called()

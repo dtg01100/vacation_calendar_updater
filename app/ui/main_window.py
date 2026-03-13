@@ -848,10 +848,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.end_date.setDate(today)
 
         # Update calendar combo with current calendar
+        self.calendar_combo.blockSignals(True)
         if self.settings.calendar in self.calendar_names:
             self.calendar_combo.setCurrentText(self.settings.calendar)
         elif self.calendar_names:
             self.calendar_combo.setCurrentIndex(0)
+        self.calendar_combo.blockSignals(False)
 
         self.undo_button.setEnabled(False)
 
@@ -1989,9 +1991,10 @@ class MainWindow(QtWidgets.QMainWindow):
             # Validate that the calendar exists in available calendars
             if self.calendar_names and calendar_name not in self.calendar_names:
                 return
-            # Save the new calendar selection to settings
-            self.settings.calendar = calendar_name
-            self.config_manager.save(self.settings)
+            # Only save if calendar actually changed
+            if calendar_name != self.settings.calendar:
+                self.settings.calendar = calendar_name
+                self.config_manager.save(self.settings)
             self._update_validation()
 
     def _reset_import_list(self) -> None:
