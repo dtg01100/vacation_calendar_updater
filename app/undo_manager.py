@@ -277,7 +277,7 @@ class UndoManager(QObject):
 
         # Trim history if needed
         if len(target_stack) > self.max_history:
-            del target_stack[:-self.max_history]
+            target_stack[:] = target_stack[-self.max_history:]
 
         self.operation_created.emit(operation_id)
         self.history_changed.emit()

@@ -1,89 +1,132 @@
 #!/bin/bash
-# Build and install the Vacation Calendar Updater Flatpak
+# Build the Vacation Calendar Updater Flatpak bundle
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FLATPAK_DIR="${SCRIPT_DIR}/flatpak"
 BUILD_DIR="${SCRIPT_DIR}/build"
+REPO_DIR="${BUILD_DIR}/repo"
+BUNDLE_FILE="${SCRIPT_DIR}/vacation-calendar-updater.flatpak"
 PIP_GENERATOR="${SCRIPT_DIR}/flatpak-builder-tools/pip/flatpak-pip-generator"
 TEMP_DIR="${BUILD_DIR}/source-temp"
 
-# Verify flatpak-builder is installed
-if ! command -v flatpak-builder &>/dev/null; then
-	echo "Error: flatpak-builder is not installed"
-	exit 1
-fi
+BUILD_MODE="${1:-bundle}"
 
-echo "=== Preparing Flatpak build ==="
+verify_flatpak_builder() {
+	if ! command -v flatpak-builder &>/dev/null; then
+		echo "Error: flatpak-builder is not installed"
+		echo "Install with: flatpak install flathub flatpak-builder"
+		exit 1
+	fi
+}
 
-# Clean previous build artifacts
-rm -rf "$BUILD_DIR" "${SCRIPT_DIR}/.flatpak-builder" 2>/dev/null || true
-mkdir -p "$BUILD_DIR"
+prepare_dependencies() {
+	echo "=== Ensuring pip generator build-only dependencies ==="
+	PYTHON_BIN="python3"
+	if ! python3 -c "import requirements" >/dev/null 2>&1; then
+		VENV_DIR="${BUILD_DIR}/.flatpak-tools-venv"
+		python3 -m venv "$VENV_DIR"
+		"${VENV_DIR}/bin/python" -m pip install --upgrade pip >/dev/null
+		"${VENV_DIR}/bin/python" -m pip install 'requirements-parser>=0.11,<1.0' 'packaging>=23.0' >/dev/null
+		PYTHON_BIN="${VENV_DIR}/bin/python"
+	fi
 
-echo "=== Ensuring pip generator build-only dependencies ==="
-# Use a temporary virtual environment for build-only Python deps to avoid
-# polluting the app runtime requirements. This is only used to run
-# flatpak-builder-tools' flatpak-pip-generator which requires
-# 'requirements-parser' and 'packaging'.
-PYTHON_BIN="python3"
-if ! python3 -c "import requirements" >/dev/null 2>&1; then
-	VENV_DIR="${BUILD_DIR}/.flatpak-tools-venv"
-	python3 -m venv "$VENV_DIR"
-	"${VENV_DIR}/bin/python" -m pip install --upgrade pip >/dev/null
-	"${VENV_DIR}/bin/python" -m pip install 'requirements-parser>=0.11,<1.0' 'packaging>=23.0' >/dev/null
-	PYTHON_BIN="${VENV_DIR}/bin/python"
-fi
+	if [ -f "${FLATPAK_DIR}/pypi-dependencies.json" ]; then
+		echo "=== Using existing pypi-dependencies.json ==="
+	else
+		echo "=== Generating PyPI dependencies ==="
+		PIP_ONLY_BINARY=:all: "$PYTHON_BIN" "$PIP_GENERATOR" \
+			--requirements="${FLATPAK_DIR}/requirements-runtime.txt" \
+			--output="${FLATPAK_DIR}/pypi-dependencies.json"
+	fi
+}
 
-# Check if pypi-dependencies.json already exists with manually configured binary wheels
-# The manually configured file uses binary wheels for packages that require Rust/maturin:
-# - cryptography, cffi, charset_normalizer, protobuf
-# The KDE SDK doesn't include Rust, so source tarballs fail to build.
-# Skip regeneration to preserve these manual modifications.
-if [ -f "${FLATPAK_DIR}/pypi-dependencies.json" ]; then
-	echo "=== Using existing pypi-dependencies.json (preserving binary wheel configuration) ==="
-	echo "Note: To regenerate dependencies, delete flatpak/pypi-dependencies.json first"
-else
-	echo "=== Generating PyPI dependencies ==="
-	# Generate pypi-dependencies.json using flatpak-pip-generator
-	# Use PIP_ONLY_BINARY=:all: to prefer pre-built wheels over source distributions
-	# This avoids the need for Rust compilation for packages like cryptography
-	PIP_ONLY_BINARY=:all: "$PYTHON_BIN" "$PIP_GENERATOR" \
-		--requirements="${FLATPAK_DIR}/requirements-runtime.txt" \
-		--output="${FLATPAK_DIR}/pypi-dependencies.json"
-fi
+create_source_tarball() {
+	echo "=== Creating source tarball ==="
+	mkdir -p "$TEMP_DIR"
+	rsync -av --exclude='.git' --exclude='.flatpak-builder' --exclude='build' \
+		--exclude='__pycache__' --exclude='*.pyc' --exclude='.pytest_cache' \
+		--exclude='.mypy_cache' --exclude='.vscode' --exclude='.idea' \
+		--exclude='*.egg-info' --exclude='.eggs' --exclude='dist' \
+		--exclude='*.whl' --exclude='containerhome' --exclude='.devcontainer.json' \
+		--exclude='Dockerfile' --exclude='.gitmodules' \
+		"${SCRIPT_DIR}/" "$TEMP_DIR/" --include='app/***' --include='client_secret.json' --include='pyproject.toml' --include='flatpak/***' --include='run.sh' --exclude='*'
+	tar -czf "${FLATPAK_DIR}/vacation-calendar-updater.tar.gz" -C "$TEMP_DIR" .
+	cp "${FLATPAK_DIR}/vacation-calendar-updater.tar.gz" "${SCRIPT_DIR}/"
+}
 
-echo "=== Creating source tarball ==="
-# Create a clean tarball without git files
-mkdir -p "$TEMP_DIR"
-rsync -av --exclude='.git' --exclude='.flatpak-builder' --exclude='build' \
-	--exclude='__pycache__' --exclude='*.pyc' --exclude='.pytest_cache' \
-	--exclude='.mypy_cache' --exclude='.vscode' --exclude='.idea' \
-	--exclude='*.egg-info' --exclude='.eggs' --exclude='dist' \
-	--exclude='*.whl' --exclude='containerhome' --exclude='.devcontainer.json' \
-	--exclude='Dockerfile' --exclude='.gitmodules' \
-	"${SCRIPT_DIR}/" "$TEMP_DIR/" --include='app/***' --include='client_secret.json' --include='pyproject.toml' --include='flatpak/***' --include='run.sh' --exclude='*'
-tar -czf "${FLATPAK_DIR}/vacation-calendar-updater.tar.gz" -C "$TEMP_DIR" .
+build_repo() {
+	echo "=== Building Flatpak repo ==="
+	echo "This may take several minutes..."
 
-# Copy tarball to a location flatpak-builder can find
-cp "${FLATPAK_DIR}/vacation-calendar-updater.tar.gz" "${SCRIPT_DIR}/"
+	mkdir -p "$REPO_DIR"
+	flatpak-builder --repo="$REPO_DIR" --force-clean \
+		"$BUILD_DIR/app" \
+		"${FLATPAK_DIR}/com.github.dtg01100.vacation_calendar_updater.json"
+}
 
-echo "=== Building Flatpak ==="
-echo "This may take several minutes..."
+build_bundle() {
+	echo "=== Creating Flatpak bundle ==="
+	flatpak build-bundle "$REPO_DIR" "$BUNDLE_FILE" \
+		com.github.dtg01100.vacation_calendar_updater
+}
 
-# Build and install the Flatpak
-flatpak-builder --user --install --force-clean \
-	"$BUILD_DIR" \
-	"${FLATPAK_DIR}/com.github.dtg01100.vacation_calendar_updater.json"
+install_local() {
+	echo "=== Installing Flatpak locally ==="
+	flatpak-builder --user --install --force-clean \
+		"$BUILD_DIR/app" \
+		"${FLATPAK_DIR}/com.github.dtg01100.vacation_calendar_updater.json"
+}
 
-# Clean up temporary files
-rm -rf "$TEMP_DIR"
+cleanup() {
+	rm -rf "$TEMP_DIR"
+}
 
-echo ""
-echo "=== Flatpak build complete ==="
-echo ""
-echo "To run the application:"
-echo "  flatpak run com.github.dtg01100.vacation_calendar_updater"
-echo ""
-echo "To uninstall:"
-echo "  flatpak uninstall --user com.github.dtg01100.vacation_calendar_updater"
+main() {
+	verify_flatpak_builder
+
+	echo "=== Preparing Flatpak build ==="
+	rm -rf "$BUILD_DIR" "${SCRIPT_DIR}/.flatpak-builder" 2>/dev/null || true
+	mkdir -p "$BUILD_DIR"
+
+	prepare_dependencies
+	create_source_tarball
+	build_repo
+
+	case "$BUILD_MODE" in
+	bundle)
+		build_bundle
+		cleanup
+		echo ""
+		echo "=== Flatpak bundle built successfully ==="
+		echo "Bundle location: $BUNDLE_FILE"
+		echo ""
+		echo "To install the bundle:"
+		echo "  flatpak install $BUNDLE_FILE"
+		echo ""
+		echo "To uninstall after installation:"
+		echo "  flatpak uninstall com.github.dtg01100.vacation_calendar_updater"
+		;;
+	install)
+		install_local
+		cleanup
+		echo ""
+		echo "=== Flatpak installed successfully ==="
+		echo ""
+		echo "To run the application:"
+		echo "  flatpak run com.github.dtg01100.vacation_calendar_updater"
+		echo ""
+		echo "To uninstall:"
+		echo "  flatpak uninstall --user com.github.dtg01100.vacation_calendar_updater"
+		;;
+	*)
+		echo "Usage: $0 [bundle|install]"
+		echo "  bundle (default) - Build a distributable .flatpak file"
+		echo "  install          - Build and install locally"
+		exit 1
+		;;
+	esac
+}
+
+main

@@ -73,6 +73,8 @@ class QtBot:
         """Clean up all tracked widgets."""
         for widget in self.widgets:
             try:
+                # Ensure any background processing is stopped cleanly.
+                widget.close()
                 widget.deleteLater()
             except Exception:
                 pass

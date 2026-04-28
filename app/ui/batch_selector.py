@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -46,8 +47,10 @@ class BatchSelectorWidget(QWidget):
         self.undo_manager = undo_manager
         self._selected_batch_id: str | None = None
         self._batch_item_map = {}  # Maps QTreeWidgetItem -> batch_id
+        self._current_date = QDate.currentDate()
+        self._filter_text = ""
         self._init_ui()
-        self._populate_batches_for_date(QDate.currentDate())
+        self._populate_batches_for_date(self._current_date)
 
     def _init_ui(self):
         """Initialize UI components."""
@@ -75,6 +78,12 @@ class BatchSelectorWidget(QWidget):
         tree_label.setStyleSheet("font-weight: bold;")
         tree_layout.addWidget(tree_label)
 
+        # Search bar for filtering batches/events
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search batches or events...")
+        self.search_input.textChanged.connect(self._on_search_text_changed)
+        tree_layout.addWidget(self.search_input)
+
         self.batch_tree = QTreeWidget()
         self.batch_tree.setHeaderLabels(["Batch", "Time", "Events"])
         self.batch_tree.setColumnCount(3)
@@ -92,7 +101,8 @@ class BatchSelectorWidget(QWidget):
         dates_with_events = set()
         for batch in all_batches:
             for event in batch.events:
-                dates_with_events.add(event.start_time.date())
+                if event.start_time:
+                    dates_with_events.add(event.start_time.date())
 
         # Apply formatting to highlighted dates
         colors = dark_mode.get_colors()
@@ -106,7 +116,13 @@ class BatchSelectorWidget(QWidget):
 
     def _on_date_selected(self, q_date: QDate):
         """Handle calendar date selection."""
+        self._current_date = q_date
         self._populate_batches_for_date(q_date)
+
+    def _on_search_text_changed(self, text: str):
+        """Handle search input changes and refresh the batch list."""
+        self._filter_text = (text or "").strip()
+        self._populate_batches_for_date(self._current_date)
 
     def _populate_batches_for_date(self, q_date: QDate):
         """Populate batch tree for the selected date.
@@ -121,8 +137,27 @@ class BatchSelectorWidget(QWidget):
         # Get batches for the selected date (±7 days)
         batches = self.undo_manager.get_batches_for_date(date, day_range=7)
 
+        # If there is a filter, narrow down the batches
+        filter_text = self._filter_text.lower().strip()
+        if filter_text:
+            def matches_filter(batch):
+                if filter_text in (batch.batch_id or "").lower():
+                    return True
+                if filter_text in (batch.description or "").lower():
+                    return True
+                for event in batch.events:
+                    if filter_text in (getattr(event, "event_name", "") or "").lower():
+                        return True
+                return False
+
+            batches = [b for b in batches if matches_filter(b)]
+
         if not batches:
-            item = QTreeWidgetItem(["No batches found for this date range"])
+            message = "No batches found for this date range"
+            if filter_text:
+                message = f"No batches match '{filter_text}'"
+
+            item = QTreeWidgetItem([message])
             item.setFlags(item.flags() & ~Qt.ItemIsSelectable)
             self.batch_tree.addTopLevelItem(item)
             return
@@ -201,6 +236,9 @@ class BatchSelectorDialog(QDialog):
         self._selected_batch_id: str | None = None
 
         self._init_ui()
+
+        # Automatically focus the search input so users can start typing immediately.
+        self.selector.search_input.setFocus()
 
     def _init_ui(self):
         """Initialize dialog UI."""

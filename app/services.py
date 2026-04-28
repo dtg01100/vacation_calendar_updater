@@ -145,7 +145,10 @@ class GoogleApi:
             .insert(calendarId=calendar_id, body=body)
             .execute()
         )
-        return CreatedEvent(event_id=event.get("id"), calendar_id=calendar_id)
+        event_id = event.get("id")
+        if event_id is None:
+            raise ValueError("Failed to create event: no event ID returned from Google Calendar API")
+        return CreatedEvent(event_id=event_id, calendar_id=calendar_id)
 
     def delete_event(self, created_event: CreatedEvent) -> None:
         self.ensure_connected()

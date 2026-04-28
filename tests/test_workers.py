@@ -257,7 +257,7 @@ class TestUpdateWorker:
 
         worker.run()
 
-        assert mock_api.delete_event.call_count >= len(sample_enhanced_events)
+        assert mock_api.delete_event.call_count == len(sample_enhanced_events)
 
     def test_update_worker_creates_new_events(
         self, mock_api, sample_enhanced_events, sample_request

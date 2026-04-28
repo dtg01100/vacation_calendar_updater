@@ -260,7 +260,7 @@ def validate_request(req: ScheduleRequest) -> list[str]:
     weekday_list = weekday_constants(req.weekdays)
     if not weekday_list:
         errors.append("Select at least one weekday")
-    if req.day_length_hours <= 0 or req.day_length_hours >= 24:
+    if req.day_length_hours <= 0 or req.day_length_hours > 24:
         errors.append("Day length must be between 0 and 24 hours")
     if req.start_date > req.end_date:
         errors.append("Start date must be on or before end date")

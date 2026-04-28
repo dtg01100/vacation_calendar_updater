@@ -1329,7 +1329,57 @@ class MainWindow(QtWidgets.QMainWindow):
 
                     # Fill in event name from the first event in the batch
                     if batch.events and self.current_mode == "update":
-                        self.event_name.setText(batch.events[0].event_name)
+                        first_event = batch.events[0]
+                        self.event_name.setText(first_event.event_name)
+
+                        # Pull over the batch date range so the user can edit it easily
+                        # Prefer snapshot data when available (more accurate than derived datetimes)
+                        if getattr(first_event, "request_snapshot", None):
+                            snapshot = first_event.request_snapshot
+                            try:
+                                if "start_date" in snapshot:
+                                    start_date = parse_date(snapshot["start_date"])
+                                    self.start_date.setDate(
+                                        QtCore.QDate(
+                                            start_date.year,
+                                            start_date.month,
+                                            start_date.day,
+                                        )
+                                    )
+                            except Exception:
+                                pass
+                            try:
+                                if "end_date" in snapshot:
+                                    end_date = parse_date(snapshot["end_date"])
+                                    self.end_date.setDate(
+                                        QtCore.QDate(
+                                            end_date.year,
+                                            end_date.month,
+                                            end_date.day,
+                                        )
+                                    )
+                            except Exception:
+                                pass
+                        else:
+                            # Fall back to datetime attributes if snapshot is not available
+                            if getattr(first_event, "start_time", None):
+                                start_dt = first_event.start_time
+                                self.start_date.setDate(
+                                    QtCore.QDate(
+                                        start_dt.year,
+                                        start_dt.month,
+                                        start_dt.day,
+                                    )
+                                )
+                            if getattr(first_event, "end_time", None):
+                                end_dt = first_event.end_time
+                                self.end_date.setDate(
+                                    QtCore.QDate(
+                                        end_dt.year,
+                                        end_dt.month,
+                                        end_dt.day,
+                                    )
+                                )
                 self._update_validation()
 
     def _process_create(self) -> None:
@@ -2424,6 +2474,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _stop_all_threads(self) -> None:
         """Stop any running worker threads safely."""
+        # Ensure all background threads are stopped before exiting to avoid
+        # Qt warnings/errors about destroying QThreads that are still running.
+        self._stop_thread(self._startup_thread, getattr(self, "_startup_worker", None))
         self._stop_thread(self.creation_thread, self.creation_worker)
         self._stop_thread(self.undo_thread, self.undo_worker)
         self._stop_thread(self.redo_thread, self.redo_worker)

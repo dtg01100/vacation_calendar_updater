@@ -125,6 +125,63 @@ class TestBatchSelectorWidgetInitialization:
         assert len(headers) >= 3
 
 
+class TestBatchSelectorWidgetSearch:
+    """Test search/filter functionality in BatchSelectorWidget."""
+
+    def test_search_input_exists(self, batch_selector_widget):
+        """Test that search input exists on the widget."""
+        assert hasattr(batch_selector_widget, 'search_input')
+        assert batch_selector_widget.search_input is not None
+
+    def test_search_filters_by_batch_id(self, undo_manager, batch_selector_widget):
+        """Test that search filters batches by batch id."""
+        batch1 = create_test_batch(batch_id="batch_001")
+        batch2 = create_test_batch(batch_id="other_batch")
+        undo_manager.undo_stack.append(batch1)
+        undo_manager.undo_stack.append(batch2)
+
+        today = QDate.currentDate()
+        batch_selector_widget._populate_batches_for_date(today)
+
+        # Filter to only batch_001
+        batch_selector_widget.search_input.setText("batch_001")
+        assert batch_selector_widget.batch_tree.topLevelItemCount() == 1
+        item = batch_selector_widget.batch_tree.topLevelItem(0)
+        # Verify the filtered result corresponds to the expected batch id
+        assert batch_selector_widget._batch_item_map.get(item) == "batch_001"
+
+    def test_search_filters_by_event_name(self, undo_manager, batch_selector_widget):
+        """Test that search filters batches by event name."""
+        batch1 = create_test_batch(batch_id="batch_001", event_count=1)
+        batch2 = create_test_batch(batch_id="batch_002", event_count=1)
+        # Rename the event on batch2 to be distinct
+        batch2.events[0].event_name = "UniqueEventName"
+        undo_manager.undo_stack.append(batch1)
+        undo_manager.undo_stack.append(batch2)
+
+        today = QDate.currentDate()
+        batch_selector_widget._populate_batches_for_date(today)
+
+        # Filter to only show batches with 'UniqueEventName'
+        batch_selector_widget.search_input.setText("UniqueEventName")
+        assert batch_selector_widget.batch_tree.topLevelItemCount() == 1
+        item = batch_selector_widget.batch_tree.topLevelItem(0)
+        assert batch_selector_widget._batch_item_map.get(item) == "batch_002"
+
+    def test_search_no_matches_shows_message(self, undo_manager, batch_selector_widget):
+        """Test that no match search shows a message."""
+        batch = create_test_batch(batch_id="batch_001")
+        undo_manager.undo_stack.append(batch)
+
+        today = QDate.currentDate()
+        batch_selector_widget._populate_batches_for_date(today)
+
+        batch_selector_widget.search_input.setText("nope")
+        assert batch_selector_widget.batch_tree.topLevelItemCount() == 1
+        item = batch_selector_widget.batch_tree.topLevelItem(0)
+        assert "No batches match" in item.text(0)
+
+
 class TestBatchSelectorWidgetEmptyState:
     """Test BatchSelectorWidget with no batches."""
 
@@ -318,6 +375,12 @@ class TestBatchSelectorDialogInitialization:
     def test_dialog_initial_batch_id_is_none(self, batch_selector_dialog):
         """Test that initial selected batch ID is None."""
         assert batch_selector_dialog.get_selected_batch_id() is None
+
+    def test_search_input_receives_focus(self, batch_selector_dialog, qapp):
+        """Test that the search input is focused when the dialog is shown."""
+        batch_selector_dialog.show()
+        qapp.processEvents()
+        assert batch_selector_dialog.focusWidget() is batch_selector_dialog.selector.search_input
 
 
 class TestBatchSelectorDialogSelection:

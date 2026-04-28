@@ -8,7 +8,6 @@ import pytest
 
 from app.services import EnhancedCreatedEvent
 from app.undo_manager import UndoManager
-from app.validation import ScheduleRequest
 
 
 @pytest.fixture
@@ -151,52 +150,6 @@ class TestBatchSelection:
         result = manager.get_batch_by_id("nonexistent_batch_id")
 
         assert result is None
-
-
-class TestModeValidation:
-    """Tests for mode-specific validation logic."""
-
-    def test_delete_mode_requires_batch_selection(self):
-        """Test that DELETE mode requires a batch to be selected."""
-        # No batch selected
-        batch = None
-
-        # Validation should fail
-        assert batch is None or batch == ""
-
-    def test_update_mode_requires_batch_and_schedule(self):
-        """Test that UPDATE mode requires both batch and new schedule."""
-        batch = None
-        schedule = None
-
-        # Both required for UPDATE
-        assert batch is None or batch == ""
-        assert schedule is None
-
-    def test_create_mode_requires_full_schedule(self):
-        """Test that CREATE mode requires complete schedule data."""
-        request = ScheduleRequest(
-            event_name="",  # Empty name should fail
-            notification_email="test@example.com",
-            calendar_name="Primary",
-            start_date=dt.date(2024, 1, 15),
-            end_date=dt.date(2024, 1, 20),
-            start_time=dt.time(9, 0),
-            day_length_hours=8.0,
-            weekdays={
-                "monday": True,
-                "tuesday": True,
-                "wednesday": True,
-                "thursday": True,
-                "friday": True,
-                "saturday": False,
-                "sunday": False,
-            },
-            send_email=False,
-        )
-
-        # Should have empty event name
-        assert request.event_name == ""
 
 
 class TestBatchMetadataPreservation:

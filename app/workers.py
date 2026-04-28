@@ -111,7 +111,6 @@ class BaseWorker(QObject):
                         event_id=event.event_id,
                         event_name=event.event_name
                     ))
-                    processed_event_ids.append(event.event_id)
                 else:
                     raise
             except Exception as e:

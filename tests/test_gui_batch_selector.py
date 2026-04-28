@@ -4,6 +4,8 @@ from __future__ import annotations
 import datetime as dt
 from unittest.mock import Mock, patch
 
+from PySide6 import QtCore, QtWidgets
+
 import pytest
 
 from app.config import ConfigManager
@@ -479,6 +481,44 @@ class TestModeLayoutGeometry:
 
             assert window.start_date.isVisible()
             assert window.end_date.isVisible()
+
+    def test_update_mode_batch_selection_populates_dates(self, qtbot, mock_api, mock_config):
+        """Selecting a batch in UPDATE mode should populate start/end dates."""
+        with patch("app.ui.main_window.StartupWorker"):
+            window = MainWindow(api=mock_api, config=mock_config)
+            window.calendar_names = ["Primary"]
+            window.calendar_id_by_name = {"Primary": "cal_001"}
+            qtbot.addWidget(window)
+            window.show()
+
+            window._switch_mode("update")
+
+            assert window.current_mode == "update"
+            assert window.batch_selector_btn.isEnabled()
+
+            # Set non-default dates to ensure selection changes them
+            window.start_date.setDate(QtCore.QDate(2000, 1, 1))
+            window.end_date.setDate(QtCore.QDate(2000, 1, 2))
+
+            # Prepare fake batch and events
+            start_dt = dt.datetime(2025, 1, 10, 9, 0)
+            end_dt = dt.datetime(2025, 1, 15, 17, 0)
+            event = Mock(start_time=start_dt, end_time=end_dt, event_name="Test Event", request_snapshot=None)
+            batch = Mock(events=[event], description="Test Batch", batch_id="batch_001")
+            window.undo_manager = Mock(get_batch_by_id=Mock(return_value=batch))
+
+            with patch("app.ui.main_window.BatchSelectorDialog") as mock_dialog:
+                mock_instance = Mock()
+                mock_instance.exec.return_value = QtWidgets.QDialog.Accepted
+                mock_instance.get_selected_batch_id.return_value = "batch_001"
+                mock_dialog.return_value = mock_instance
+
+                # Call open dialog method directly to avoid relying on Qt click propagation in tests
+                window._open_batch_selector()
+                QtWidgets.QApplication.processEvents()
+
+            assert window.start_date.date() == QtCore.QDate(2025, 1, 10)
+            assert window.end_date.date() == QtCore.QDate(2025, 1, 15)
 
     def test_update_mode_time_inputs_visible(self, qtbot, mock_api, mock_config):
         """Test time inputs ARE visible in UPDATE mode."""
