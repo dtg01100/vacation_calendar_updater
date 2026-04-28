@@ -11,7 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 # Import fixtures from fixtures package for discovery
-from tests.fixtures.mock_api import empty_api, mock_api  # noqa: F401
+from tests.fixtures.mock_api import empty_api, mock_api, mockable_api  # noqa: F401
 from tests.fixtures.sample_data import (  # noqa: F401
     sample_batch,
     sample_event,

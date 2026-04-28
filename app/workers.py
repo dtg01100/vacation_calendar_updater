@@ -106,6 +106,8 @@ class BaseWorker(QObject):
                     ))
             except HttpError as e:
                 if e.resp.status in (404, 410):
+                    # Event already deleted or not found - consider it handled
+                    processed_event_ids.append(event.event_id)
                     skipped_events.append(event)
                     self.progress.emit(skip_msg_template.format(
                         event_id=event.event_id,

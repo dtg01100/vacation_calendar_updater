@@ -11,7 +11,7 @@ import datetime as dt
 import pytest
 
 from app.services import EnhancedCreatedEvent
-from app.undo_manager import BatchInfo
+from app.validation import UndoBatch
 from app.workers import DeleteWorker
 
 
@@ -239,14 +239,7 @@ class TestDeleteModeUndoIntegration:
     def test_batch_can_be_undone(self, mock_api, sample_batch, undo_manager):
         """Test that a deleted batch can be tracked for undo."""
         # Add the batch to undo manager
-        batch_info = BatchInfo(
-            batch_id=sample_batch[0].batch_id,
-            description="Vacation batch",
-            events=sample_batch,
-            request_snapshots=[e.request_snapshot for e in sample_batch],
-            created_at=dt.datetime.now(),
-        )
-        undo_manager.add_batch(batch_info)
+        undo_manager.add_batch(sample_batch, "Vacation batch")
 
         # Delete the events
         worker = DeleteWorker(
@@ -266,14 +259,7 @@ class TestDeleteModeUndoIntegration:
     ):
         """Test that deleted events are properly tracked."""
         # Add batch
-        batch_info = BatchInfo(
-            batch_id=sample_batch[0].batch_id,
-            description="Test batch",
-            events=sample_batch,
-            request_snapshots=[e.request_snapshot for e in sample_batch],
-            created_at=dt.datetime.now(),
-        )
-        undo_manager.add_batch(batch_info)
+        undo_manager.add_batch(sample_batch, "Vacation batch")
 
         # Delete events
         worker = DeleteWorker(

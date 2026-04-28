@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any
-from unittest.mock import MagicMock
+from typing import TYPE_CHECKING, Any
+from unittest.mock import MagicMock, patch
 
 import pytest
 from googleapiclient.errors import HttpError
@@ -172,6 +172,74 @@ class MockGoogleApi:
         self._error_response = None
 
 
+class MockableGoogleApi(MagicMock):
+    """A MagicMock-based API that supports both mock patterns and internal state.
+
+    This class extends MagicMock to support `return_value` and `side_effect`
+    patterns used in integration tests, while also maintaining internal state
+    for methods that need it.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._events: dict[str, dict[str, Any]] = {}
+        self._email_sent: list[dict[str, Any]] = []
+        self._call_count: dict[str, int] = {"create_event": 0, "delete_event": 0}
+
+    def add_event(
+        self,
+        event_id: str,
+        calendar_id: str,
+        summary: str = "Test Event",
+        start: dt.datetime | None = None,
+        end: dt.datetime | None = None,
+    ) -> None:
+        """Add an event to the internal store."""
+        if start is None:
+            start = dt.datetime.now()
+        if end is None:
+            end = start + dt.timedelta(hours=1)
+
+        self._events[event_id] = {
+            "id": event_id,
+            "calendar_id": calendar_id,
+            "summary": summary,
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+        }
+
+    def delete_event(self, event_id: str) -> None:
+        """Delete an event from internal store."""
+        if event_id in self._events:
+            del self._events[event_id]
+
+    def send_email(
+        self,
+        to: str,
+        subject: str,
+        body: str,
+        event_ids: list[str] | None = None,
+    ) -> None:
+        """Record email sending."""
+        self._email_sent.append(
+            {
+                "to": to,
+                "subject": subject,
+                "body": body,
+                "event_ids": event_ids or [],
+            }
+        )
+
+    def get_sent_emails(self) -> list[dict[str, Any]]:
+        """Get all sent emails."""
+        return self._email_sent.copy()
+
+    @property
+    def call_count(self) -> dict[str, int]:
+        """Get call counts for methods."""
+        return self._call_count
+
+
 @pytest.fixture
 def mock_api() -> MockGoogleApi:
     """Create a MockGoogleApi instance with test data.
@@ -205,3 +273,20 @@ def mock_api() -> MockGoogleApi:
 def empty_api() -> MockGoogleApi:
     """Create an empty MockGoogleApi with no data."""
     return MockGoogleApi()
+
+
+@pytest.fixture
+def mockable_api() -> MockableGoogleApi:
+    """Create a MockableGoogleApi that supports MagicMock patterns.
+
+    Use this fixture for integration tests that need to use
+    `mock_api.method.return_value` or `mock_api.method.side_effect`.
+    """
+    api = MockableGoogleApi()
+    # Default return values
+    api.list_calendars.return_value = [
+        {"id": "cal_primary", "summary": "Primary"},
+        {"id": "cal_work", "summary": "Work Calendar"},
+    ]
+    api.user_email.return_value = "[REDACTED]"
+    return api
