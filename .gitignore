@@ -187,3 +187,11 @@ app.ico
 # CLIO (managed automatically)
 .clio/*
 !.clio/instructions.md
+
+# Code assistant artifacts
+.kilo/
+.kilocode/
+.opencode/
+
+# Flatpak build output
+*.flatpak
