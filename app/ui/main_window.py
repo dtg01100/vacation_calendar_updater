@@ -253,11 +253,17 @@ class MainWindow(QtWidgets.QMainWindow):
         # Set current calendar from settings
         # Block signals during restoration to prevent redundant saves
         self.calendar_combo.blockSignals(True)
+        restored = False
         if self.settings.calendar and self.settings.calendar in calendar_names:
             self.calendar_combo.setCurrentText(self.settings.calendar)
+            restored = True
         elif calendar_names:
             self.calendar_combo.setCurrentIndex(0)
         self.calendar_combo.blockSignals(False)
+
+        # Sync settings.calendar with UI state (setCurrentText doesn't emit signal)
+        if restored:
+            self.settings.calendar = self.calendar_combo.currentText()
 
         # Update calendar_names for validation
         self.calendar_names = calendar_names  # pylint: disable=attribute-defined-outside-init
@@ -849,11 +855,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Update calendar combo with current calendar
         self.calendar_combo.blockSignals(True)
+        restored = False
         if self.settings.calendar in self.calendar_names:
             self.calendar_combo.setCurrentText(self.settings.calendar)
+            restored = True
         elif self.calendar_names:
             self.calendar_combo.setCurrentIndex(0)
         self.calendar_combo.blockSignals(False)
+
+        # Sync settings.calendar with UI state (setCurrentText doesn't emit signal)
+        if restored:
+            self.settings.calendar = self.calendar_combo.currentText()
 
         self.undo_button.setEnabled(False)
 
@@ -1128,10 +1140,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self.calendar_combo.clear()
             self.calendar_combo.addItems(self.calendar_names)
             self.calendar_combo.setEnabled(True)
+            self.calendar_combo.blockSignals(True)
             if self.settings and self.settings.calendar in self.calendar_names:
                 self.calendar_combo.setCurrentText(self.settings.calendar)
             elif self.calendar_names:
                 self.calendar_combo.setCurrentIndex(0)
+            self.calendar_combo.blockSignals(False)
 
         self.current_mode = mode
         self.selected_batch_for_operation = None  # Reset batch selection
