@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -8,6 +9,16 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+# Import fixtures from fixtures package for discovery
+from tests.fixtures.mock_api import empty_api, mock_api  # noqa: F401
+from tests.fixtures.sample_data import (  # noqa: F401
+    sample_batch,
+    sample_event,
+    sample_schedule_request,
+    sample_schedule_request_custom_hours,
+    sample_schedule_request_single_day,
+)
 
 
 @pytest.fixture(scope="session")
@@ -18,6 +29,32 @@ def qapp():
     if app is None:
         app = QApplication([])
     return app
+
+
+@pytest.fixture
+def undo_manager():
+    """Create a fresh UndoManager for testing.
+
+    Returns a new UndoManager instance with empty stacks.
+    Optionally accepts initial batches for pre-populated testing.
+    """
+    from app.undo_manager import UndoManager
+
+    manager = UndoManager()
+    return manager
+
+
+@pytest.fixture
+def mock_config():
+    """Create a mock Config object for testing."""
+    from unittest.mock import MagicMock
+
+    config = MagicMock()
+    config.get_calendar_name.return_value = "Primary"
+    config.get_calendar_id.return_value = "cal_primary"
+    config.get_default_day_length.return_value = 8.0
+    config.get_notification_email.return_value = "[REDACTED]"
+    return config
 
 
 class QtBot:
