@@ -172,19 +172,150 @@ class MockGoogleApi:
         self._error_response = None
 
 
-class MockableGoogleApi(MagicMock):
-    """A MagicMock-based API that supports both mock patterns and internal state.
+class MockableGoogleApi:
+    """A mock API that supports MagicMock-style assertions and internal state.
 
-    This class extends MagicMock to support `return_value` and `side_effect`
-    patterns used in integration tests, while also maintaining internal state
-    for methods that need it.
+    This class combines real method implementations with MagicMock-style
+    call tracking. Use `mockable_api._mock_delete_event.called` and
+    `mockable_api._mock_delete_event.assert_called_with()` for assertions,
+    while the real methods do the actual work for stateful tests.
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self) -> None:
+        """Initialize the mock API with empty state."""
         self._events: dict[str, dict[str, Any]] = {}
         self._email_sent: list[dict[str, Any]] = []
-        self._call_count: dict[str, int] = {"create_event": 0, "delete_event": 0}
+        self._calendars: dict[str, dict[str, Any]] = {}
+        # MagicMock instances for assertion support
+        self._mock_list_calendars = MagicMock()
+        self._mock_user_email = MagicMock()
+        self._mock_delete_event = MagicMock()
+        self._mock_send_email = MagicMock()
+        self._mock_create_event = MagicMock()
+        self._mock_update_event = MagicMock()
+        # Pre-configure common return values
+        self._mock_list_calendars.return_value = [
+            {"id": "cal_primary", "summary": "Primary"},
+            {"id": "cal_work", "summary": "Work Calendar"},
+        ]
+        self._mock_user_email.return_value = "[REDACTED]"
+        self._mock_create_event.return_value = CreatedEvent(
+            event_id="new_0", calendar_id="cal_primary"
+        )
+        self._mock_update_event.return_value = CreatedEvent(
+            event_id="updated", calendar_id="cal_primary"
+        )
+
+    def list_calendars(self) -> list[dict[str, Any]]:
+        """List calendars."""
+        return self._mock_list_calendars()
+
+    def user_email(self) -> str:
+        """Get user email."""
+        return self._mock_user_email()
+
+    def list_events(
+        self,
+        calendar_id: str,
+        time_min: dt.datetime | None = None,
+        time_max: dt.datetime | None = None,
+    ) -> list[dict[str, Any]]:
+        """List events from internal store."""
+        events = list(self._events.values())
+        return [e for e in events if e.get("calendar_id") == calendar_id]
+
+    def create_event(
+        self,
+        calendar_id: str,
+        summary: str,
+        start: dt.datetime,
+        end: dt.datetime,
+    ) -> CreatedEvent:
+        """Create an event and return CreatedEvent."""
+        self._mock_create_event(calendar_id, summary, start, end)
+        event_id = f"new_{len(self._events)}"
+        self._events[event_id] = {
+            "id": event_id,
+            "calendar_id": calendar_id,
+            "summary": summary,
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+        }
+        return CreatedEvent(event_id=event_id, calendar_id=calendar_id)
+
+    def delete_event(self, event: Any) -> None:
+        """Delete an event and track the call.
+
+        Accepts either an event_id string or an object with event_id attribute.
+        The call is tracked via MagicMock for assertion support.
+        """
+        # Extract event_id from object or use directly
+        event_id = getattr(event, "event_id", event)
+        # Track the call (use str to ensure hashability)
+        self._mock_delete_event(str(event_id))
+        # Only try to delete from internal store if it's a valid key
+        if isinstance(event_id, str) and event_id in self._events:
+            del self._events[event_id]
+
+    def update_event(
+        self,
+        event_id: str,
+        calendar_id: str,
+        summary: str,
+        start: dt.datetime,
+        end: dt.datetime,
+    ) -> CreatedEvent:
+        """Update an event and return CreatedEvent."""
+        self._mock_update_event(event_id, calendar_id, summary, start, end)
+        if event_id in self._events:
+            self._events[event_id].update(
+                {
+                    "summary": summary,
+                    "start": start.isoformat(),
+                    "end": end.isoformat(),
+                }
+            )
+        else:
+            self._events[event_id] = {
+                "id": event_id,
+                "calendar_id": calendar_id,
+                "summary": summary,
+                "start": start.isoformat(),
+                "end": end.isoformat(),
+            }
+        return CreatedEvent(event_id=event_id, calendar_id=calendar_id)
+
+    def send_email(
+        self,
+        recipient: str,
+        subject: str,
+        body: str,
+        *,
+        enabled: bool = True,
+    ) -> None:
+        """Record email sending and track the call.
+
+        Args:
+            recipient: Email address to send to
+            subject: Email subject line
+            body: Email body text
+            enabled: Whether email sending is enabled - if False, no email is recorded
+        """
+        if not enabled:
+            return  # Respect the enabled flag like the real implementation
+        self._mock_send_email(recipient, subject, body)
+        self._email_sent.append(
+            {
+                "to": recipient,
+                "subject": subject,
+                "body": body,
+                "event_ids": [],
+            }
+        )
+
+    def get_sent_emails(self) -> list[dict[str, Any]]:
+        """Get all sent emails."""
+        return self._email_sent.copy()
 
     def add_event(
         self,
@@ -208,36 +339,15 @@ class MockableGoogleApi(MagicMock):
             "end": end.isoformat(),
         }
 
-    def delete_event(self, event_id: str) -> None:
-        """Delete an event from internal store."""
-        if event_id in self._events:
-            del self._events[event_id]
-
-    def send_email(
-        self,
-        to: str,
-        subject: str,
-        body: str,
-        event_ids: list[str] | None = None,
-    ) -> None:
-        """Record email sending."""
-        self._email_sent.append(
-            {
-                "to": to,
-                "subject": subject,
-                "body": body,
-                "event_ids": event_ids or [],
-            }
-        )
-
-    def get_sent_emails(self) -> list[dict[str, Any]]:
-        """Get all sent emails."""
-        return self._email_sent.copy()
-
-    @property
-    def call_count(self) -> dict[str, int]:
-        """Get call counts for methods."""
-        return self._call_count
+    def reset(self) -> None:
+        """Reset all mock data."""
+        self._events.clear()
+        self._email_sent.clear()
+        self._calendars.clear()
+        self._mock_delete_event.reset_mock()
+        self._mock_send_email.reset_mock()
+        self._mock_create_event.reset_mock()
+        self._mock_update_event.reset_mock()
 
 
 @pytest.fixture
@@ -280,13 +390,7 @@ def mockable_api() -> MockableGoogleApi:
     """Create a MockableGoogleApi that supports MagicMock patterns.
 
     Use this fixture for integration tests that need to use
-    `mock_api.method.return_value` or `mock_api.method.side_effect`.
+    `mock_api._mock_method.return_value` or `mock_api._mock_method.side_effect`
+    for assertion tracking. The real methods do actual work.
     """
-    api = MockableGoogleApi()
-    # Default return values
-    api.list_calendars.return_value = [
-        {"id": "cal_primary", "summary": "Primary"},
-        {"id": "cal_work", "summary": "Work Calendar"},
-    ]
-    api.user_email.return_value = "[REDACTED]"
-    return api
+    return MockableGoogleApi()

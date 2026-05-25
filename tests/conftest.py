@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+from unittest.mock import MagicMock  # noqa: F401 - Exposed for all test modules
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -47,13 +48,25 @@ def undo_manager():
 @pytest.fixture
 def mock_config():
     """Create a mock Config object for testing."""
-    from unittest.mock import MagicMock
+    from unittest.mock import MagicMock, patch
+
+    from app.config import Settings
+
+    # Create a real Settings object for the mock to return
+    real_settings = Settings(
+        email_address="[REDACTED]",
+        calendar="Primary",
+        weekdays={"monday": True, "tuesday": True, "wednesday": True, "thursday": True, "friday": True, "saturday": True, "sunday": True},
+        send_email=True,
+    )
 
     config = MagicMock()
     config.get_calendar_name.return_value = "Primary"
     config.get_calendar_id.return_value = "cal_primary"
     config.get_default_day_length.return_value = 8.0
     config.get_notification_email.return_value = "[REDACTED]"
+    # ensure_defaults should return a real Settings object
+    config.ensure_defaults.return_value = real_settings
     return config
 
 

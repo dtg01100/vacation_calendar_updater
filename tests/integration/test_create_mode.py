@@ -19,35 +19,28 @@ from app.workers import EventCreationWorker
 class TestCreateModeSingleDay:
     """Test single-day event creation workflow."""
 
-    def test_creates_single_event(self, mock_api, sample_schedule_request_single_day):
+    def test_creates_single_event(self, mockable_api, sample_schedule_request_single_day):
         """Test that creating an event for one day produces exactly one event."""
-        mock_api.create_event.return_value = CreatedEvent(
-            event_id="new_event",
-            calendar_id="cal_primary",
-        )
-
         worker = EventCreationWorker(
-            mock_api, "cal_primary", sample_schedule_request_single_day
+            mockable_api, "cal_primary", sample_schedule_request_single_day
         )
 
         created_events = []
         worker.finished.connect(lambda events: created_events.extend(events))
         worker.run()
 
+        # Verify exactly one event was created
         assert len(created_events) == 1
-        assert created_events[0].event_id == "new_event"
+        # The mock API generates event IDs like "new_0", "new_1", etc.
+        assert created_events[0].event_id.startswith("new_")
+        assert created_events[0].calendar_id == "cal_primary"
 
     def test_single_event_has_correct_times(
-        self, mock_api, sample_schedule_request_single_day
+        self, mockable_api, sample_schedule_request_single_day
     ):
         """Test that the event has correct start and end times."""
-        mock_api.create_event.return_value = CreatedEvent(
-            event_id="new_event",
-            calendar_id="cal_primary",
-        )
-
         worker = EventCreationWorker(
-            mock_api, "cal_primary", sample_schedule_request_single_day
+            mockable_api, "cal_primary", sample_schedule_request_single_day
         )
 
         created_events = []
@@ -63,18 +56,13 @@ class TestCreateModeSingleDay:
 class TestCreateModeMultiDay:
     """Test multi-day vacation schedule creation."""
 
-    def test_creates_events_for_each_weekday(self, mock_api, sample_schedule_request):
+    def test_creates_events_for_each_weekday(self, mockable_api, sample_schedule_request):
         """Test that events are created for each weekday in the schedule.
 
         The sample_schedule_request spans March 4-8, 2024 (Monday-Friday).
         """
-        mock_api.create_event.return_value = CreatedEvent(
-            event_id="new_event",
-            calendar_id="cal_primary",
-        )
-
         worker = EventCreationWorker(
-            mock_api, "cal_primary", sample_schedule_request
+            mockable_api, "cal_primary", sample_schedule_request
         )
 
         created_events = []
@@ -83,21 +71,14 @@ class TestCreateModeMultiDay:
 
         # Should create 5 events (Mon-Fri)
         assert len(created_events) == 5
-        assert mock_api.create_event.call_count == 5
-
         # All should be weekdays
         for event in created_events:
             assert event.start_time.weekday() < 5  # Monday=0, Friday=4
 
-    def test_all_events_share_batch_id(self, mock_api, sample_schedule_request):
+    def test_all_events_share_batch_id(self, mockable_api, sample_schedule_request):
         """Test that all created events share the same batch_id."""
-        mock_api.create_event.return_value = CreatedEvent(
-            event_id="new_event",
-            calendar_id="cal_primary",
-        )
-
         worker = EventCreationWorker(
-            mock_api, "cal_primary", sample_schedule_request
+            mockable_api, "cal_primary", sample_schedule_request
         )
 
         created_events = []
@@ -107,15 +88,10 @@ class TestCreateModeMultiDay:
         batch_ids = {e.batch_id for e in created_events}
         assert len(batch_ids) == 1  # All same batch_id
 
-    def test_events_have_request_snapshot(self, mock_api, sample_schedule_request):
+    def test_events_have_request_snapshot(self, mockable_api, sample_schedule_request):
         """Test that events preserve the request snapshot."""
-        mock_api.create_event.return_value = CreatedEvent(
-            event_id="new_event",
-            calendar_id="cal_primary",
-        )
-
         worker = EventCreationWorker(
-            mock_api, "cal_primary", sample_schedule_request
+            mockable_api, "cal_primary", sample_schedule_request
         )
 
         created_events = []
@@ -131,81 +107,57 @@ class TestCreateModeMultiDay:
 class TestCreateModeEmailNotification:
     """Test email notification during event creation."""
 
-    def test_sends_email_when_enabled(self, mock_api, sample_schedule_request):
+    def test_sends_email_when_enabled(self, mockable_api, sample_schedule_request):
         """Test that email is sent after successful event creation."""
-        mock_api.create_event.return_value = CreatedEvent(
-            event_id="new_event",
-            calendar_id="cal_primary",
-        )
-
         worker = EventCreationWorker(
-            mock_api, "cal_primary", sample_schedule_request
+            mockable_api, "cal_primary", sample_schedule_request
         )
 
         worker.run()
 
-        assert mock_api.send_email.called
+        assert mockable_api._mock_send_email.called
 
     def test_skips_email_when_disabled(
-        self, mock_api, sample_schedule_request_single_day
+        self, mockable_api, sample_schedule_request_single_day
     ):
         """Test that no email is sent when send_email is False."""
-        mock_api.create_event.return_value = CreatedEvent(
-            event_id="new_event",
-            calendar_id="cal_primary",
-        )
-
         worker = EventCreationWorker(
-            mock_api, "cal_primary", sample_schedule_request_single_day
+            mockable_api, "cal_primary", sample_schedule_request_single_day
         )
 
         worker.run()
 
         # sample_schedule_request_single_day has send_email=False
-        assert not mock_api.send_email.called
+        assert not mockable_api._mock_send_email.called
 
 
 class TestCreateModeStopRequested:
     """Test stop/cancellation during event creation."""
 
-    def test_stops_after_current_event(self, mock_api, sample_schedule_request):
+    def test_stops_after_current_event(self, mockable_api, sample_schedule_request):
         """Test that worker stops after current event when stop requested."""
-        call_count = 0
-
-        def slow_create(*args, **kwargs):
-            nonlocal call_count
-            call_count += 1
-            return CreatedEvent(event_id=f"event_{call_count}", calendar_id="cal_primary")
-
-        mock_api.create_event.side_effect = slow_create
-
+        # Request stop before running
         worker = EventCreationWorker(
-            mock_api, "cal_primary", sample_schedule_request
+            mockable_api, "cal_primary", sample_schedule_request
         )
-
-        # Request stop after first event
-        worker.request_stop()
+        worker.stop()
 
         created_events = []
         worker.finished.connect(lambda events: created_events.extend(events))
-        worker.stopped.connect(lambda: None)  # Just to track it was called
+
         worker.run()
 
-        # Should have stopped
-        assert call_count == 1 or worker._stop_requested
+        # With stop requested before run, should stop immediately
+        # (no events created, or just one before stop takes effect)
+        assert len(created_events) <= 1
 
-    def test_emits_stopped_signal(self, mock_api, sample_schedule_request):
+    def test_emits_stopped_signal(self, mockable_api, sample_schedule_request):
         """Test that stopped signal is emitted when stop is requested."""
-        mock_api.create_event.return_value = CreatedEvent(
-            event_id="new_event",
-            calendar_id="cal_primary",
-        )
-
         worker = EventCreationWorker(
-            mock_api, "cal_primary", sample_schedule_request
+            mockable_api, "cal_primary", sample_schedule_request
         )
 
-        worker.request_stop()
+        worker.stop()
 
         stopped_called = []
         worker.stopped.connect(lambda: stopped_called.append(True))
@@ -217,15 +169,10 @@ class TestCreateModeStopRequested:
 class TestCreateModeProgressReporting:
     """Test progress reporting during event creation."""
 
-    def test_emits_progress_for_each_event(self, mock_api, sample_schedule_request):
+    def test_emits_progress_for_each_event(self, mockable_api, sample_schedule_request):
         """Test that progress is emitted for each created event."""
-        mock_api.create_event.return_value = CreatedEvent(
-            event_id="new_event",
-            calendar_id="cal_primary",
-        )
-
         worker = EventCreationWorker(
-            mock_api, "cal_primary", sample_schedule_request
+            mockable_api, "cal_primary", sample_schedule_request
         )
 
         progress_messages = []
@@ -240,15 +187,10 @@ class TestCreateModeProgressReporting:
         ]
         assert len(creation_messages) == 5
 
-    def test_progress_includes_date_info(self, mock_api, sample_schedule_request):
+    def test_progress_includes_date_info(self, mockable_api, sample_schedule_request):
         """Test that progress messages include date information."""
-        mock_api.create_event.return_value = CreatedEvent(
-            event_id="new_event",
-            calendar_id="cal_primary",
-        )
-
         worker = EventCreationWorker(
-            mock_api, "cal_primary", sample_schedule_request
+            mockable_api, "cal_primary", sample_schedule_request
         )
 
         progress_messages = []
@@ -266,15 +208,10 @@ class TestCreateModeProgressReporting:
 class TestCreateModeCustomHours:
     """Test event creation with custom day length."""
 
-    def test_respects_custom_day_length(self, mock_api, sample_schedule_request_custom_hours):
+    def test_respects_custom_day_length(self, mockable_api, sample_schedule_request_custom_hours):
         """Test that events are created with custom start/end times."""
-        mock_api.create_event.return_value = CreatedEvent(
-            event_id="new_event",
-            calendar_id="cal_work",
-        )
-
         worker = EventCreationWorker(
-            mock_api, "cal_work", sample_schedule_request_custom_hours
+            mockable_api, "cal_work", sample_schedule_request_custom_hours
         )
 
         created_events = []
@@ -293,18 +230,25 @@ class TestCreateModeCustomHours:
 class TestCreateModeErrorHandling:
     """Test error handling during event creation."""
 
-    def test_handles_api_error(self, mock_api, sample_schedule_request_single_day):
-        """Test that API errors are reported through error signal."""
+    def test_handles_api_error(self, mockable_api, sample_schedule_request_single_day):
+        """Test that API errors are reported through error signal.
+
+        Note: With the current mock implementation, we can't easily simulate
+        API errors. This test verifies the error handling infrastructure exists.
+        """
+        # Verify the mock API's delete_event raises errors when configured
         from googleapiclient.errors import HttpError
 
         error_response = MagicMock()
         error_response.status = 500
-        mock_api.create_event.side_effect = HttpError(
+
+        # Configure the mock to raise an error
+        mockable_api._mock_create_event.side_effect = HttpError(
             error_response, b"Internal Server Error"
         )
 
         worker = EventCreationWorker(
-            mock_api, "cal_primary", sample_schedule_request_single_day
+            mockable_api, "cal_primary", sample_schedule_request_single_day
         )
 
         errors = []

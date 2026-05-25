@@ -853,19 +853,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.start_date.setDate(today)
         self.end_date.setDate(today)
 
-        # Update calendar combo with current calendar
+        # Update calendar combo with current calendar (only if calendars are already loaded)
+        # Calendar restoration will be completed in _on_startup_complete() when calendars load
         self.calendar_combo.blockSignals(True)
-        restored = False
-        if self.settings.calendar in self.calendar_names:
-            self.calendar_combo.setCurrentText(self.settings.calendar)
-            restored = True
-        elif self.calendar_names:
-            self.calendar_combo.setCurrentIndex(0)
+        if self.calendar_names:  # Only restore if calendars are already available
+            if self.settings.calendar in self.calendar_names:
+                self.calendar_combo.setCurrentText(self.settings.calendar)
+            elif self.calendar_names:
+                self.calendar_combo.setCurrentIndex(0)
         self.calendar_combo.blockSignals(False)
-
-        # Sync settings.calendar with UI state (setCurrentText doesn't emit signal)
-        if restored:
-            self.settings.calendar = self.calendar_combo.currentText()
 
         self.undo_button.setEnabled(False)
 

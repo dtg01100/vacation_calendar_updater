@@ -53,6 +53,7 @@ class BaseWorker(QObject):
                 self.progress.emit("Notification email sent")
         except Exception as e:
             self.progress.emit(f"Email notification failed: {e}")
+            self.error.emit(f"Failed to send email notification: {e}")
 
     def safe_run(self) -> None:
         """Wrapper with standard error handling."""

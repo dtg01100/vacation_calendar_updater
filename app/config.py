@@ -169,6 +169,8 @@ class ConfigManager:
         if not self._qt_settings.contains("send_email"):
             self._qt_settings.setValue("send_email", True)
 
+        self._qt_settings.sync()  # Ensure defaults are persisted
+
         settings = self._load_settings_qt()
 
         return self._validate_and_save_settings(settings, default_email, calendar_options)
@@ -215,6 +217,8 @@ class ConfigManager:
         # Save last used times
         self._qt_settings.setValue("last_start_time", settings.last_start_time)
         self._qt_settings.setValue("last_day_length", settings.last_day_length)
+
+        self._qt_settings.sync()  # Ensure all values are persisted to disk
 
     # File-based methods (for testing)
     def _read(self) -> configparser.RawConfigParser:
